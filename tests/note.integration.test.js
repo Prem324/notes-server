@@ -260,7 +260,7 @@ describe("Note Integration Tests", () => {
     expect(response.body.success).toBe(false);
 
     expect(response.body.message).toBe(
-        "Not authorized"
+        "Not authorized to update this note"
     );
 
     const note = await Note.findById(noteId);
@@ -311,7 +311,7 @@ test("DELETE /api/v1/notes/:id should reject deleting another user's note", asyn
     expect(response.body.success).toBe(false);
 
     expect(response.body.message).toBe(
-        "Not authorized"
+        "Not authorized to update this note"
     );
 
     const note = await Note.findById(noteId);

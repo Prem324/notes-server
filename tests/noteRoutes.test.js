@@ -232,7 +232,8 @@ describe("Note Routes", () => {
         ).toHaveBeenCalledWith(
             "note123",
             requestBody,
-            "user123"
+            "user123",
+            "user"
         );
     });
 
@@ -270,7 +271,8 @@ describe("Note Routes", () => {
             noteService.deleteNote
         ).toHaveBeenCalledWith(
             "note123",
-            "user123"
+            "user123",
+            "user"
         );
     });
 
