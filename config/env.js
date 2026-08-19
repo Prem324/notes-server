@@ -42,4 +42,12 @@ module.exports = {
         apiKey: process.env.CLOUDINARY_API_KEY,
         apiSecret: process.env.CLOUDINARY_API_SECRET,
     },
+
+    email: {
+        host: process.env.EMAIL_HOST,
+        port: Number(process.env.EMAIL_PORT) || 587,
+        user: process.env.EMAIL_USER,
+        password: process.env.EMAIL_PASSWORD,
+        from: process.env.EMAIL_FROM,
+    },    
 };

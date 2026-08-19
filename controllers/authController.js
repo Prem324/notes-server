@@ -25,4 +25,57 @@ const login=async(req,res)=>{
     );
 }
 
-module.exports={register,login};
+const forgotPassword = async (req, res) => {
+    const { email } = req.body;
+
+    const result = await authService.forgotPassword(email);
+
+    return sendSuccess(
+        res,
+        200,
+        result.message
+    );
+};
+
+const resetPassword = async (req, res) => {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    const result = await authService.resetPassword(
+        token,
+        password
+    );
+
+    return sendSuccess(
+        res,
+        200,
+        result.message
+    );
+};
+
+const verifyEmail = async (req, res) => {
+    const { token } = req.params;
+
+    const result = await authService.verifyEmail(token);
+
+    return sendSuccess(
+        res,
+        200,
+        result.message
+    );
+};
+
+const resendVerificationEmail = async (req, res) => {
+    const { email } = req.body;
+
+    const result =
+        await authService.resendVerificationEmail(email);
+
+    return sendSuccess(
+        res,
+        200,
+        result.message
+    );
+};
+
+module.exports={register,login,forgotPassword,resetPassword,verifyEmail,resendVerificationEmail};
