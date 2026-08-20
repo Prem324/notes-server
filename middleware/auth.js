@@ -5,7 +5,7 @@ const auth=(req,res,next)=>{
     try{
         
         // Get Authorization header
-        const authHeader=req.headers.authorization;;
+        const authHeader=req.headers.authorization;
 
         //Check if header exists
         if(!authHeader){

@@ -15,6 +15,7 @@ const cookieParser = require("cookie-parser");
 
 const healthRoutes = require("./routes/healthRoutes");
 const authRoutes = require("./routes/authRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 const noteRoutes = require("./routes/noteRoutes");
 const userRoutes = require("./routes/userRoutes");
 const commentRoutes = require("./routes/commentRoutes");
@@ -45,6 +46,8 @@ app.get("/", (req, res) => {
 });
 
 app.use("/health", healthRoutes);
+
+app.use("/api/v1/admin",adminRoutes);
 
 app.use(
     "/api-docs",
