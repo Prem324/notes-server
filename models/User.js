@@ -28,6 +28,14 @@ const userSchema=new mongoose.Schema({
         required:true,
         select:false
     },
+    refreshTokenHash: {
+        type: String,
+        select: false
+    },
+    refreshTokenExpires: {
+        type: Date,
+        select: false
+    },
     resetPasswordTokenHash:{
         type:String,
         select:false

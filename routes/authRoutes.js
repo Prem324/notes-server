@@ -10,6 +10,8 @@ const {registerSchema,loginSchema,forgotPasswordSchema,resetPasswordSchema,resen
 const {
     register,
     login,
+    refresh,
+    logout,
     forgotPassword,
     resetPassword,
     verifyEmail,
@@ -104,6 +106,81 @@ router.post("/login",
     loginLimiter,
     asyncHandler(login)
 );  
+
+/**
+ * @swagger
+ * /api/v1/auth/refresh:
+ *   post:
+ *     summary: Refresh access token
+ *     description: Generates a new short-lived access token using the refresh token stored in an HttpOnly cookie.
+ *     tags:
+ *       - Auth
+ *     responses:
+ *       200:
+ *         description: Access token refreshed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Access token refreshed successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     accessToken:
+ *                       type: string
+ *                       description: Newly generated short-lived JWT access token.
+ *                       example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *       401:
+ *         description: Refresh token is missing, invalid, or expired
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post(
+    "/refresh",
+    asyncHandler(refresh)
+);
+
+/**
+ * @swagger
+ * /api/v1/auth/logout:
+ *   post:
+ *     summary: Logout user
+ *     description: Logs out the user by invalidating the refresh token stored in the HttpOnly cookie and clearing the cookie.
+ *     tags:
+ *       - Auth
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Logout successful
+ *       401:
+ *         description: Invalid or expired refresh token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post(
+    "/logout",
+    asyncHandler(logout)
+);
 
 /**
  * @swagger

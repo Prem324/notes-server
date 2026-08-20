@@ -13,17 +13,87 @@ const register=async (req,res)=>{
 );
 };
 
-const login=async(req,res)=>{
-    const{email,password}=req.body;
+const login = async (req, res) => {
+    const { email, password } = req.body;
 
-    const token=await authService.loginUser(email,password);
+    const { accessToken, refreshToken } =
+        await authService.loginUser(
+            email,
+            password
+        );
+
+    res.cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production"
+            ? "none"
+            : "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
     return sendSuccess(
-        res,200,"Login successful",
+        res,
+        200,
+        "Login successful",
         {
-            token,
+            accessToken,
         }
     );
-}
+};
+
+const refresh = async (req, res) => {
+    const refreshToken = req.cookies.refreshToken;
+
+    const result =
+        await authService.refreshAccessToken(
+            refreshToken
+        );
+
+    res.cookie(
+        "refreshToken",
+        result.refreshToken,
+        {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite:
+                process.env.NODE_ENV === "production"
+                    ? "none"
+                    : "lax",
+            maxAge:
+                7 * 24 * 60 * 60 * 1000,
+        }
+    );
+
+    return sendSuccess(
+        res,
+        200,
+        "Access token refreshed successfully",
+        {
+            accessToken: result.accessToken,
+        }
+    );
+};
+
+const logout = async (req, res) => {
+    const refreshToken = req.cookies.refreshToken;
+
+    await authService.logoutUser(refreshToken);
+
+    res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite:
+            process.env.NODE_ENV === "production"
+                ? "none"
+                : "lax",
+    });
+
+    return sendSuccess(
+        res,
+        200,
+        "Logout successful"
+    );
+};
 
 const forgotPassword = async (req, res) => {
     const { email } = req.body;
@@ -78,4 +148,13 @@ const resendVerificationEmail = async (req, res) => {
     );
 };
 
-module.exports={register,login,forgotPassword,resetPassword,verifyEmail,resendVerificationEmail};
+module.exports={
+    register,
+    login,
+    refresh,
+    logout,
+    forgotPassword,
+    resetPassword,
+    verifyEmail,
+    resendVerificationEmail
+};

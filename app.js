@@ -10,6 +10,8 @@ const requestLogger = require("./middleware/requestLogger");
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./config/swagger");
 const compression = require("compression");
+const cookieParser = require("cookie-parser");
+
 
 const healthRoutes = require("./routes/healthRoutes");
 const authRoutes = require("./routes/authRoutes");
@@ -33,6 +35,7 @@ if (config.nodeEnv === "development") {
     app.use(morgan("dev"));
 }
 app.use(requestLogger);
+app.use(cookieParser());
 
 app.get("/", (req, res) => {
     res.status(200).json({
