@@ -6,14 +6,21 @@ jest.mock("../middleware/rateLimiter", () => {
     return {
         loginLimiter: (req, res, next) => next(),
         registerLimiter: (req, res, next) => next(),
+        forgotPasswordLimiter: (req, res, next) => next(),
     };
 });
+
+jest.mock("../services/emailService", () => ({
+    sendPasswordResetEmail: jest.fn().mockResolvedValue(true),
+    sendVerificationEmail: jest.fn().mockResolvedValue(true),
+}));
 
 const request = require("supertest");
 
 const app = require("../app");
 
 const Note = require("../models/Note");
+const User = require("../models/User");
 
 const {
     connectTestDB,
@@ -47,6 +54,8 @@ const registerAndLogin = async (
             password,
         });
 
+    await User.updateOne({ email }, { emailVerified: true });
+
     const loginResponse = await request(app)
         .post("/api/v1/auth/login")
         .send({
@@ -54,7 +63,7 @@ const registerAndLogin = async (
             password,
         });
 
-    return loginResponse.body.data.token;
+    return loginResponse.body.data.accessToken;
 };
 
 describe("Note Integration Tests", () => {

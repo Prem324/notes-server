@@ -1,28 +1,34 @@
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 
-const User = require("../../models/User");
-const authService = require("../../services/authService");
+const User = require("../models/User");
+const authService = require("../services/authService");
 
-jest.mock("../../models/User");
+jest.mock("../models/User");
 jest.mock("jsonwebtoken");
 
-describe("refreshAccessToken", () => {
+describe("authService - refreshAccessToken", () => {
+
     beforeEach(() => {
         jest.clearAllMocks();
     });
 
+
     test("should reject when refresh token is missing", async () => {
+
         await expect(
             authService.refreshAccessToken()
         ).rejects.toMatchObject({
             statusCode: 401,
         });
 
-        expect(User.findOne).not.toHaveBeenCalled();
+        expect(User.findOne)
+            .not.toHaveBeenCalled();
     });
 
+
     test("should reject an invalid refresh token", async () => {
+
         User.findOne.mockResolvedValue(null);
 
         await expect(
@@ -32,55 +38,79 @@ describe("refreshAccessToken", () => {
         ).rejects.toMatchObject({
             statusCode: 401,
         });
+
+        expect(User.findOne)
+            .toHaveBeenCalled();
     });
 
-    test("should rotate a valid refresh token", async () => {
-        const oldRefreshToken = "old-refresh-token";
 
-        const oldRefreshTokenHash = crypto
-            .createHash("sha256")
-            .update(oldRefreshToken)
-            .digest("hex");
+    test("should rotate a valid refresh token", async () => {
+
+        const oldRefreshToken =
+            "old-refresh-token";
+
+        const oldRefreshTokenHash =
+            crypto
+                .createHash("sha256")
+                .update(oldRefreshToken)
+                .digest("hex");
 
         const user = {
             _id: "user123",
+
             role: "user",
-            refreshTokenHash: oldRefreshTokenHash,
-            refreshTokenExpires: new Date(
-                Date.now() + 60 * 60 * 1000
-            ),
-            save: jest.fn(),
+
+            refreshTokenHash:
+                oldRefreshTokenHash,
+
+            refreshTokenExpires:
+                new Date(
+                    Date.now() +
+                    60 * 60 * 1000
+                ),
+
+            save: jest.fn()
+                .mockResolvedValue(true),
         };
 
         User.findOne.mockResolvedValue(user);
 
-        jwt.sign.mockReturnValue("new-access-token");
+        jwt.sign.mockReturnValue(
+            "new-access-token"
+        );
+
 
         const result =
             await authService.refreshAccessToken(
                 oldRefreshToken
             );
 
-        expect(result.accessToken).toBe(
-            "new-access-token"
-        );
 
-        expect(result.refreshToken).toBeDefined();
+        expect(result.accessToken)
+            .toBe("new-access-token");
 
-        expect(result.refreshToken).not.toBe(
-            oldRefreshToken
-        );
+        expect(result.refreshToken)
+            .toBeDefined();
 
-        expect(user.refreshTokenHash).not.toBe(
-            oldRefreshTokenHash
-        );
+        expect(result.refreshToken)
+            .not.toBe(oldRefreshToken);
 
-        expect(user.save).toHaveBeenCalledTimes(1);
+        expect(user.refreshTokenHash)
+            .not.toBe(oldRefreshTokenHash);
 
-        expect(jwt.sign).toHaveBeenCalledTimes(1);
+        expect(user.refreshTokenExpires)
+            .toBeDefined();
+
+        expect(user.save)
+            .toHaveBeenCalledTimes(1);
+
+        expect(jwt.sign)
+            .toHaveBeenCalledTimes(1);
     });
 
+
     test("should reject an expired refresh token", async () => {
+
         User.findOne.mockResolvedValue(null);
 
         await expect(
@@ -91,4 +121,5 @@ describe("refreshAccessToken", () => {
             statusCode: 401,
         });
     });
+
 });

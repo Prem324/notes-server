@@ -6,8 +6,14 @@ jest.mock("../middleware/rateLimiter", () => {
     return {
         loginLimiter: (req, res, next) => next(),
         registerLimiter: (req, res, next) => next(),
+        forgotPasswordLimiter: (req, res, next) => next(),
     };
 });
+
+jest.mock("../services/emailService", () => ({
+    sendPasswordResetEmail: jest.fn().mockResolvedValue(true),
+    sendVerificationEmail: jest.fn().mockResolvedValue(true),
+}));
 const request = require("supertest");
 const app = require("../app");
 const User = require("../models/User");
@@ -134,6 +140,11 @@ describe("Login Integration Tests", () => {
 
     expect(registerResponse.statusCode).toBe(201);
 
+    await User.updateOne(
+        { email: "prem@gmail.com" },
+        { emailVerified: true }
+    );
+
 
     // =====================
     // ACT
@@ -155,7 +166,7 @@ describe("Login Integration Tests", () => {
 
     expect(response.body.success).toBe(true);
 
-    expect(response.body.data.token).toEqual(
+    expect(response.body.data.accessToken).toEqual(
         expect.any(String)
     );
 });
@@ -172,6 +183,11 @@ test("POST /api/v1/auth/login should reject invalid password", async () => {
             email: "prem@gmail.com",
             password: "Password123",
         });
+
+    await User.updateOne(
+        { email: "prem@gmail.com" },
+        { emailVerified: true }
+    );
 
 
     // =====================
@@ -264,6 +280,11 @@ describe("Profile Integration Tests", () => {
 
     expect(registerResponse.statusCode).toBe(201);
 
+    await User.updateOne(
+        { email: "prem@gmail.com" },
+        { emailVerified: true }
+    );
+
     const loginResponse = await request(app)
         .post("/api/v1/auth/login")
         .send({
@@ -273,7 +294,7 @@ describe("Profile Integration Tests", () => {
 
     expect(loginResponse.statusCode).toBe(200);
 
-    const token = loginResponse.body.data.token;
+    const token = loginResponse.body.data.accessToken;
 
 
     // =====================

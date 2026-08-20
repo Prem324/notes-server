@@ -1,23 +1,15 @@
 const request = require("supertest");
 
-const authService =
-require("../services/authService");
+const authService = require("../services/authService");
 
-
-// Mock authService
 jest.mock("../services/authService");
 
+jest.mock("../middleware/rateLimiter", () => ({
+    loginLimiter: (req, res, next) => next(),
+    registerLimiter: (req, res, next) => next(),
+    forgotPasswordLimiter: (req, res, next) => next(),
+}));
 
-// Mock rate limiters so they do not block tests
-jest.mock("../middleware/rateLimiter", () => {
-    return {
-        loginLimiter: (req, res, next) => next(),
-        registerLimiter: (req, res, next) => next(),
-    };
-});
-
-
-// Mock auth middleware for /profile route
 jest.mock("../middleware/auth", () => {
     return (req, res, next) => {
         req.user = {
@@ -29,12 +21,7 @@ jest.mock("../middleware/auth", () => {
     };
 });
 
-
-// IMPORTANT:
-// app should be required after mocks are defined
 const app = require("../app");
-const { message } = require("../validators/noteValidator");
-
 
 beforeEach(() => {
     jest.clearAllMocks();
@@ -42,254 +29,320 @@ beforeEach(() => {
 
 
 describe("Auth Routes", () => {
-    test("POST /api/v1/auth/register should register user successfully", async () => {
-        // =====================
-        // ARRANGE
-        // =====================
 
-        const requestBody = {
-            name: "Prem",
-            email: "prem@gmail.com",
-            password: "Password123",
-        };
+    test(
+        "POST /api/v1/auth/register should register user successfully",
+        async () => {
 
-        const fakeUser = {
-            _id: "user123",
-            name: "Prem",
-            email: "prem@gmail.com",
-            password: "hashedPassword",
-        };
-
-        authService.registerUser.mockResolvedValue(
-            fakeUser
-        );
-
-
-        // =====================
-        // ACT
-        // =====================
-
-        const response = await request(app)
-            .post("/api/v1/auth/register")
-            .send(requestBody);
-
-
-        // =====================
-        // ASSERT
-        // =====================
-
-        expect(response.statusCode).toBe(201);
-
-        expect(response.body).toEqual({
-            success: true,
-            message:"User registered successfully",
-            data: {
-                id: "user123",
+            const requestBody = {
                 name: "Prem",
                 email: "prem@gmail.com",
-            },
-        });
+                password: "Password123",
+            };
 
-        expect(
-            authService.registerUser
-        ).toHaveBeenCalledWith(
-            requestBody
-        );
-    });
-
-
-    test("POST /api/v1/auth/register should return 400 for invalid email", async () => {
-        // =====================
-        // ARRANGE
-        // =====================
-
-        const invalidBody = {
-            name: "Prem",
-            email: "invalid-email",
-            password: "Password123",
-        };
-
-
-        // =====================
-        // ACT
-        // =====================
-
-        const response = await request(app)
-            .post("/api/v1/auth/register")
-            .send(invalidBody);
-
-
-        // =====================
-        // ASSERT
-        // =====================
-
-        expect(response.statusCode).toBe(400);
-
-        expect(response.body.success).toBe(false);
-
-        expect(response.body.message).toContain(
-            "email"
-        );
-
-        expect(
-            authService.registerUser
-        ).not.toHaveBeenCalled();
-    });
-
-
-    test("POST /api/v1/auth/login should login user successfully", async () => {
-        // =====================
-        // ARRANGE
-        // =====================
-
-        const requestBody = {
-            email: "prem@gmail.com",
-            password: "Password123",
-        };
-
-        authService.loginUser.mockResolvedValue(
-            "fake-token"
-        );
-
-
-        // =====================
-        // ACT
-        // =====================
-
-        const response = await request(app)
-            .post("/api/v1/auth/login")
-            .send(requestBody);
-
-
-        // =====================
-        // ASSERT
-        // =====================
-
-        expect(response.statusCode).toBe(200);
-
-        expect(response.body).toEqual({
-            data:{
-                token:"fake-token",
-            },
-            success: true,
-            message:"Login successful",
-        });
-
-        expect(
-            authService.loginUser
-        ).toHaveBeenCalledWith(
-            "prem@gmail.com",
-            "Password123"
-        );
-    });
-
-
-    test("POST /api/v1/auth/login should return 400 when password is missing", async () => {
-        // =====================
-        // ARRANGE
-        // =====================
-
-        const invalidBody = {
-            email: "prem@gmail.com",
-        };
-
-
-        // =====================
-        // ACT
-        // =====================
-
-        const response = await request(app)
-            .post("/api/v1/auth/login")
-            .send(invalidBody);
-
-
-        // =====================
-        // ASSERT
-        // =====================
-
-        expect(response.statusCode).toBe(400);
-
-        expect(response.body.success).toBe(false);
-
-        expect(response.body.message).toContain(
-            "password"
-        );
-
-        expect(
-            authService.loginUser
-        ).not.toHaveBeenCalled();
-    });
-
-
-    test("POST /api/v1/auth/login should return error when service throws", async () => {
-        // =====================
-        // ARRANGE
-        // =====================
-
-        const error = new Error(
-            "Invalid credentials"
-        );
-
-        error.statusCode = 401;
-
-        authService.loginUser.mockRejectedValue(
-            error
-        );
-
-
-        // =====================
-        // ACT
-        // =====================
-
-        const response = await request(app)
-            .post("/api/v1/auth/login")
-            .send({
+            const fakeUser = {
+                _id: "user123",
+                name: "Prem",
                 email: "prem@gmail.com",
-                password: "WrongPassword123",
+                password: "hashedPassword",
+            };
+
+            authService.registerUser.mockResolvedValue(
+                fakeUser
+            );
+
+            const response = await request(app)
+                .post("/api/v1/auth/register")
+                .send(requestBody);
+
+            expect(response.statusCode).toBe(201);
+
+            expect(response.body).toEqual({
+                success: true,
+                message: "User registered successfully",
+                data: {
+                    id: "user123",
+                    name: "Prem",
+                    email: "prem@gmail.com",
+                },
             });
 
-
-        // =====================
-        // ASSERT
-        // =====================
-
-        expect(response.statusCode).toBe(401);
-
-        expect(response.body).toEqual({
-            success: false,
-            message: "Invalid credentials",
-        });
-
-        expect(
-            authService.loginUser
-        ).toHaveBeenCalledWith(
-            "prem@gmail.com",
-            "WrongPassword123"
-        );
-    });
+            expect(
+                authService.registerUser
+            ).toHaveBeenCalledWith(
+                requestBody
+            );
+        }
+    );
 
 
-    test("GET /api/v1/auth/profile should return authenticated user", async () => {
-        // =====================
-        // ACT
-        // =====================
+    test(
+        "POST /api/v1/auth/register should return 400 for invalid email",
+        async () => {
 
-        const response = await request(app)
-            .get("/api/v1/auth/profile");
+            const invalidBody = {
+                name: "Prem",
+                email: "invalid-email",
+                password: "Password123",
+            };
+
+            const response = await request(app)
+                .post("/api/v1/auth/register")
+                .send(invalidBody);
+
+            expect(response.statusCode).toBe(400);
+
+            expect(response.body.success)
+                .toBe(false);
+
+            expect(response.body.message)
+                .toContain("email");
+
+            expect(
+                authService.registerUser
+            ).not.toHaveBeenCalled();
+        }
+    );
 
 
-        // =====================
-        // ASSERT
-        // =====================
+    test(
+        "POST /api/v1/auth/login should login user successfully",
+        async () => {
 
-        expect(response.statusCode).toBe(200);
+            const requestBody = {
+                email: "prem@gmail.com",
+                password: "Password123",
+            };
 
-        expect(response.body).toEqual({
-            success: true,
-            user: {
-                id: "user123",
-                role: "user",
-            },
-        });
-    });
+            authService.loginUser.mockResolvedValue({
+                accessToken:"fake-access-token",
+                refreshToken:"fake-refresh-token",
+            }
+            );
+
+            const response = await request(app)
+                .post("/api/v1/auth/login")
+                .send(requestBody);
+
+            expect(response.statusCode).toBe(200);
+
+            expect(response.body).toEqual({
+                data: {
+                    accessToken: "fake-access-token",
+                },
+                success: true,
+                message: "Login successful",
+            });
+
+            expect(
+                authService.loginUser
+            ).toHaveBeenCalledWith(
+                "prem@gmail.com",
+                "Password123"
+            );
+        }
+    );
+
+
+    test(
+        "POST /api/v1/auth/login should return 400 when password is missing",
+        async () => {
+
+            const invalidBody = {
+                email: "prem@gmail.com",
+            };
+
+            const response = await request(app)
+                .post("/api/v1/auth/login")
+                .send(invalidBody);
+
+            expect(response.statusCode).toBe(400);
+
+            expect(response.body.success)
+                .toBe(false);
+
+            expect(response.body.message)
+                .toContain("password");
+
+            expect(
+                authService.loginUser
+            ).not.toHaveBeenCalled();
+        }
+    );
+
+
+    test(
+        "POST /api/v1/auth/login should return 401 when service throws",
+        async () => {
+
+            const error = new Error(
+                "Invalid credentials"
+            );
+
+            error.statusCode = 401;
+
+            authService.loginUser.mockRejectedValue(
+                error
+            );
+
+            const response = await request(app)
+                .post("/api/v1/auth/login")
+                .send({
+                    email: "prem@gmail.com",
+                    password: "WrongPassword123",
+                });
+
+            expect(response.statusCode).toBe(401);
+
+            expect(response.body).toEqual({
+                success: false,
+                message: "Invalid credentials",
+            });
+        }
+    );
+
+
+    test(
+        "GET /api/v1/auth/profile should return authenticated user",
+        async () => {
+
+            const response = await request(app)
+                .get("/api/v1/auth/profile");
+
+            expect(response.statusCode)
+                .toBe(200);
+
+            expect(response.body).toEqual({
+                success: true,
+                user: {
+                    id: "user123",
+                    role: "user",
+                },
+            });
+        }
+    );
+
+});
+
+describe("Password Reset Routes", () => {
+
+    test(
+        "POST /api/v1/auth/forgot-password should request reset",
+        async () => {
+
+            authService.forgotPassword
+                .mockResolvedValue({
+                    message:
+                        "If a user with that email exists, a password reset link has been sent to the email address provided.",
+                });
+
+            const response = await request(app)
+                .post("/api/v1/auth/forgot-password")
+                .send({
+                    email: "prem@gmail.com",
+                });
+
+            expect(response.statusCode)
+                .toBe(200);
+
+            expect(
+                authService.forgotPassword
+            ).toHaveBeenCalledWith(
+                "prem@gmail.com"
+            );
+        }
+    );
+
+
+    test(
+        "POST /api/v1/auth/reset-password/:token should reset password",
+        async () => {
+
+            authService.resetPassword
+                .mockResolvedValue({
+                    message:
+                        "Password reset successfully",
+                });
+
+            const response = await request(app)
+                .post(
+                    "/api/v1/auth/reset-password/fake-token"
+                )
+                .send({
+                    password: "NewPassword123",
+                });
+
+            expect(response.statusCode)
+                .toBe(200);
+
+            expect(
+                authService.resetPassword
+            ).toHaveBeenCalledWith(
+                "fake-token",
+                "NewPassword123"
+            );
+        }
+    );
+
+});
+
+
+describe("Email Verification Routes", () => {
+
+    test(
+        "GET /api/v1/auth/verify-email/:token should verify email",
+        async () => {
+
+            authService.verifyEmail
+                .mockResolvedValue({
+                    message:
+                        "Email verified successfully",
+                });
+
+            const response = await request(app)
+                .get(
+                    "/api/v1/auth/verify-email/fake-token"
+                );
+
+            expect(response.statusCode)
+                .toBe(200);
+
+            expect(
+                authService.verifyEmail
+            ).toHaveBeenCalledWith(
+                "fake-token"
+            );
+        }
+    );
+
+
+    test(
+        "POST /api/v1/auth/resend-verification should resend email",
+        async () => {
+
+            authService.resendVerificationEmail
+                .mockResolvedValue({
+                    message:
+                        "Verification email sent successfully",
+                });
+
+            const response = await request(app)
+                .post(
+                    "/api/v1/auth/resend-verification"
+                )
+                .send({
+                    email: "prem@gmail.com",
+                });
+
+            expect(response.statusCode)
+                .toBe(200);
+
+            expect(
+                authService.resendVerificationEmail
+            ).toHaveBeenCalledWith(
+                "prem@gmail.com"
+            );
+        }
+    );
+
 });
