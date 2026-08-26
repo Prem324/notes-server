@@ -9,7 +9,10 @@ const validate = require("../middleware/validate");
 
 const {
     getAdminDashboard,
+    getAdminUsers,
     updateUserRole,
+    getAdminUserById,
+    deleteAdminUser
 } = require("../controllers/adminController");
 
 const {
@@ -96,5 +99,25 @@ router.patch(
     asyncHandler(updateUserRole)
 );
 
+router.get(
+    "/users",
+    auth,
+    authorize("admin"),
+    asyncHandler(getAdminUsers)
+);
+
+router.get(
+    "/users/:userId",
+    auth,
+    authorize("admin"),
+    asyncHandler(getAdminUserById)
+);
+
+router.delete(
+    "/users/:userId",
+    auth,
+    authorize("admin"),
+    asyncHandler(deleteAdminUser)
+);
 
 module.exports = router;

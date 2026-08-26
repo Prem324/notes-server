@@ -21,7 +21,9 @@ const testEmailConnection = async () => {
     }
 };
 
-testEmailConnection();
+if (process.env.NODE_ENV !== "test") {
+    testEmailConnection();
+}
 
 const sendPasswordResetEmail = async (email, resetToken) => {
     try {
