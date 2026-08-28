@@ -6,6 +6,9 @@ const {deleteAttachment,}=require("../services/noteService");
 
 jest.mock("../models/Note");
 jest.mock("../services/mediaService");
+jest.mock("../services/auditService", () => ({
+    log: jest.fn(),
+}));
 
 beforeEach(()=>{
     jest.clearAllMocks();

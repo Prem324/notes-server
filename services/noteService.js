@@ -1,25 +1,11 @@
 const Note = require("../models/Note");
 const mediaService = require("./mediaService");
-const redisService = require("./redisService");
+const auditService = require("./auditService");
 const AppError = require("../utils/AppError");
-
-const {
-    notesListKey,
-    notesUserPattern,
-    noteByIdKey,
-} = require("../utils/cacheKeys");
-
-const invalidateUserNotesCache = async (userId) => {
-
-    await redisService.delByPattern(
-        notesUserPattern(userId)
-    );
-};
 
 
 // ============================================================
 // GET ALL NOTES
-// Redis Cache-Aside
 // ============================================================
 
 const getAllNotes = async (
@@ -30,44 +16,9 @@ const getAllNotes = async (
     search
 ) => {
 
-    // Generate cache key
-    const cacheKey = notesListKey(
-        userId,
-        role,
-        page,
-        limit,
-        search
-    );
-
-
-    // Check Redis
-    const cachedResult =
-        await redisService.get(cacheKey);
-
-
-    if (cachedResult) {
-
-        console.log(
-            "Redis cache HIT:",
-            cacheKey
-        );
-
-        return cachedResult;
-    }
-
-
-    console.log(
-        "Redis cache MISS:",
-        cacheKey
-    );
-
-
-    // MongoDB query
     const query = {};
 
 
-    // Normal users see only their notes.
-    // Admin sees all notes.
     if (role !== "admin") {
 
         query.user = userId;
@@ -75,7 +26,6 @@ const getAllNotes = async (
     }
 
 
-    // Search
     if (search) {
 
         query.$text = {
@@ -85,17 +35,16 @@ const getAllNotes = async (
     }
 
 
-    // Count notes
     const totalNotes =
         await Note.countDocuments(query);
 
 
-    // Calculate pages
     const totalPages =
-        Math.ceil(totalNotes / limit);
+        Math.ceil(
+            totalNotes / limit
+        );
 
 
-    // Fetch notes
     const notes =
         await Note.find(query)
             .populate(
@@ -137,21 +86,12 @@ const getAllNotes = async (
     };
 
 
-    // Store in Redis
-    await redisService.set(
-        cacheKey,
-        result,
-        60
-    );
-
-
     return result;
 };
 
 
 // ============================================================
 // GET NOTE BY ID
-// Redis Cache-Aside
 // ============================================================
 
 const getNoteById = async (
@@ -160,58 +100,11 @@ const getNoteById = async (
     role
 ) => {
 
-    // ========================================================
-    // 1. Generate cache key
-    // ========================================================
-
-    const cacheKey =
-        noteByIdKey(
-            noteId,
-            userId,
-            role
-        );
-
-
-    // ========================================================
-    // 2. Check Redis
-    // ========================================================
-
-    const cachedNote =
-        await redisService.get(
-            cacheKey
-        );
-
-
-    if (cachedNote) {
-
-        console.log(
-            "Redis note cache HIT:",
-            cacheKey
-        );
-
-        return cachedNote;
-    }
-
-
-    console.log(
-        "Redis note cache MISS:",
-        cacheKey
-    );
-
-
-    // ========================================================
-    // 3. Query MongoDB
-    // ========================================================
-
     const note =
         await Note.findById(
             noteId
         );
 
-
-    // ========================================================
-    // 4. Check existence
-    // ========================================================
 
     if (!note) {
 
@@ -222,10 +115,6 @@ const getNoteById = async (
 
     }
 
-
-    // ========================================================
-    // 5. Authorization
-    // ========================================================
 
     if (
         role !== "admin" &&
@@ -240,21 +129,6 @@ const getNoteById = async (
     }
 
 
-    // ========================================================
-    // 6. Cache authorized result
-    // ========================================================
-
-    await redisService.set(
-        cacheKey,
-        note,
-        60
-    );
-
-
-    // ========================================================
-    // 7. Return note
-    // ========================================================
-
     return note;
 };
 
@@ -268,12 +142,24 @@ const createNote = async (
     userId
 ) => {
 
-    const note = await Note.create({
-        ...data,
-        user: userId,
+    const note =
+        await Note.create({
+            ...data,
+            user: userId,
+        });
+
+
+    // Audit log
+    await auditService.log({
+        userId,
+        action: "NOTE_CREATED",
+        resource: "Note",
+        resourceId: note._id,
+        metadata: {
+            title: note.title,
+        },
     });
 
-    await invalidateUserNotesCache(userId);
 
     return note;
 };
@@ -329,9 +215,18 @@ const updateNote = async (
 
     await note.save();
 
-    await invalidateUserNotesCache(
-        note.user.toString()
-    );
+
+    // Audit log
+    await auditService.log({
+        userId,
+        action: "NOTE_UPDATED",
+        resource: "Note",
+        resourceId: note._id,
+        metadata: {
+            title: note.title,
+            role,
+        },
+    });
 
 
     return note;
@@ -419,9 +314,18 @@ const deleteNote = async (
         noteId
     );
 
-    await invalidateUserNotesCache(
-        note.user.toString()
-    );
+
+    // Audit log
+    await auditService.log({
+        userId,
+        action: "NOTE_DELETED",
+        resource: "Note",
+        resourceId: noteId,
+        metadata: {
+            title: note.title,
+            role,
+        },
+    });
 
 
     return {
@@ -524,9 +428,19 @@ const uploadAttachment = async (
             }
         );
 
-    await invalidateUserNotesCache(
-        note.user.toString()
-    );
+
+    // Audit log
+    await auditService.log({
+        userId,
+        action: "ATTACHMENT_UPLOADED",
+        resource: "Note",
+        resourceId: noteId,
+        metadata: {
+            attachmentCount:
+                attachments.length,
+            role,
+        },
+    });
 
 
     return updatedNote;
@@ -602,14 +516,25 @@ const deleteAttachment =
         );
 
 
-    await note.save();
-
-    await invalidateUserNotesCache(
-        note.user.toString()
-    );
+        await note.save();
 
 
-    return note;
+        // Audit log
+        await auditService.log({
+            userId,
+            action: "ATTACHMENT_DELETED",
+            resource: "Note",
+            resourceId: noteId,
+            metadata: {
+                attachmentId,
+                fileName:
+                    attachment.fileName,
+                role,
+            },
+        });
+
+
+        return note;
     };
 
 

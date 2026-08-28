@@ -1,5 +1,5 @@
 const ExportJob = require("../models/ExportJob");
-const exportQueue = require("../queues/exportQueue");
+const Note = require("../models/Note");
 const AppError = require("../utils/AppError");
 
 const createNotesExportJob = async (userId) => {
@@ -8,22 +8,24 @@ const createNotesExportJob = async (userId) => {
         status: "pending",
     });
 
-    await exportQueue.add(
-        "export-notes",
-        {
-            exportJobId: exportJob._id.toString(),
-            userId: userId.toString(),
-        },
-        {
-            attempts: 3,
-            backoff: {
-                type: "exponential",
-                delay: 5000,
-            },
-            removeOnComplete: true,
-            removeOnFail: false,
-        }
-    );
+    const notes = await Note.find({ user: userId })
+        .select("title content completed createdAt updatedAt")
+        .sort({ createdAt: -1 })
+        .lean();
+
+    const exportData = {
+        exportedAt: new Date().toISOString(),
+        totalNotes: notes.length,
+        notes,
+    };
+
+    exportJob.status = "completed";
+    exportJob.fileUrl = `data:application/json;base64,${Buffer.from(
+        JSON.stringify(exportData, null, 2)
+    ).toString("base64")}`;
+    exportJob.errorMessage = null;
+
+    await exportJob.save();
 
     return exportJob;
 };

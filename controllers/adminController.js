@@ -1,4 +1,5 @@
 const adminService = require("../services/adminService");
+const auditService = require("../services/auditService");
 const { sendSuccess } = require("../utils/apiResponse");
 
 const getAdminDashboard = async (req, res) => {
@@ -102,11 +103,41 @@ const deleteAdminUser = async (req, res) => {
     );
 };
 
+const getAdminAuditLogs = async (req, res) => {
+
+    const {
+        page,
+        limit,
+        action,
+        resource,
+        userId,
+    } = req.query;
+
+
+    const result =
+        await auditService.getAdminAuditLogs({
+            page,
+            limit,
+            action,
+            resource,
+            userId,
+        });
+
+
+    return sendSuccess(
+        res,
+        200,
+        "Audit logs fetched successfully",
+        result
+    );
+};
+
 
 module.exports = {
     getAdminDashboard,
     updateUserRole,
     getAdminUsers,
     getAdminUserById,
-    deleteAdminUser
+    deleteAdminUser,
+    getAdminAuditLogs
 };

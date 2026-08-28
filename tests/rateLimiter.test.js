@@ -2,58 +2,6 @@ const express = require("express");
 const request = require("supertest");
 
 
-// ============================================================
-// Mock rate-limit-redis
-// ============================================================
-
-jest.mock("rate-limit-redis", () => {
-
-    class MockRedisStore {
-
-        constructor() {
-            this.hits = new Map();
-        }
-
-        async increment(key) {
-
-            const current =
-                this.hits.get(key) || 0;
-
-            const totalHits =
-                current + 1;
-
-            this.hits.set(key, totalHits);
-
-            return {
-                totalHits,
-                resetTime: new Date(
-                    Date.now() + 15 * 60 * 1000
-                ),
-            };
-        }
-
-        async decrement(key) {
-
-            const current =
-                this.hits.get(key) || 0;
-
-            this.hits.set(
-                key,
-                Math.max(current - 1, 0)
-            );
-        }
-
-        async resetKey(key) {
-            this.hits.delete(key);
-        }
-    }
-
-    return {
-        RedisStore: MockRedisStore,
-    };
-});
-
-
 const {
     loginLimiter,
     registerLimiter,

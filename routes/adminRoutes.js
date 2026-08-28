@@ -12,7 +12,8 @@ const {
     getAdminUsers,
     updateUserRole,
     getAdminUserById,
-    deleteAdminUser
+    deleteAdminUser,
+    getAdminAuditLogs
 } = require("../controllers/adminController");
 
 const {
@@ -118,6 +119,13 @@ router.delete(
     auth,
     authorize("admin"),
     asyncHandler(deleteAdminUser)
+);
+
+router.get(
+    "/audit-logs",
+    auth,
+    authorize("admin"),
+    asyncHandler(getAdminAuditLogs)
 );
 
 module.exports = router;

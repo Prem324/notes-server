@@ -27,11 +27,6 @@ module.exports = {
 
     mongoUri: process.env.MONGO_URI,
 
-    redis: {
-        host: process.env.REDIS_HOST || "localhost",
-        port: Number(process.env.REDIS_PORT) || 6379,
-    },
-
     jwtSecret: process.env.JWT_SECRET,
     jwtExpiresIn: process.env.JWT_EXPIRES_IN || "1d",
     clientUrl: process.env.CLIENT_URL || "http://localhost:3000",
