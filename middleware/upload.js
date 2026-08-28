@@ -1,32 +1,60 @@
-const multer=require("multer");
-const AppError=require("../utils/AppError");
+const multer = require("multer");
+const path = require("path");
+const AppError = require("../utils/AppError");
 
-const fileFilter=(req,file,cb)=>{
-    const allowedTypes=[
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-    "application/pdf"
+const allowedTypes = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".pdf": "application/pdf",
+};
 
-    ];
+const fileFilter = (req, file, cb) => {
 
-    if (allowedTypes.includes(file.mimetype)) {
-        return cb(null, true);
-    }
-    
-    cb(new AppError(
-            "Only JPG, PNG, WEBP and PDF are allowed",400)
+    const extension = path
+        .extname(file.originalname)
+        .toLowerCase();
+
+    const expectedMimeType =
+        allowedTypes[extension];
+
+    // Extension is not allowed
+    if (!expectedMimeType) {
+        return cb(
+            new AppError(
+                "Only JPG, PNG, WEBP and PDF files are allowed",
+                400
+            )
         );
-    };
-
-
-const upload=
-multer({
-    storage:multer.memoryStorage(),
-    fileFilter,
-    limits:{
-        fileSize:5*1024*1024,
     }
+
+    // Extension and MIME type don't match
+    if (file.mimetype !== expectedMimeType) {
+        return cb(
+            new AppError(
+                "File extension does not match file type",
+                400
+            )
+        );
+    }
+
+    cb(null, true);
+};
+
+
+const upload = multer({
+
+    storage: multer.memoryStorage(),
+
+    fileFilter,
+
+    limits: {
+        fileSize: 5 * 1024 * 1024,
+        files: 5,
+    },
+
 });
 
-module.exports=upload;
+
+module.exports = upload;

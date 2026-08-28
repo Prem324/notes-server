@@ -1,176 +1,319 @@
-const noteService=require("../services/noteService");
+const noteService = require("../services/noteService");
 const uploadService = require("../services/uploadService");
-const mediaService=require("../services/mediaService");
-const AppError=require("../utils/AppError");
-const {sendSuccess}=require("../utils/apiResponse");
-const getNotes=async(req,res)=>{
-    const page=Math.max(parseInt(req.query.page)||1,1);
-    const limit=Math.min(Math.max(parseInt(req.query.limit)||10,1),50);
-    const search=req.query.search||"";
+const mediaService = require("../services/mediaService");
+const AppError = require("../utils/AppError");
+const { sendSuccess } = require("../utils/apiResponse");
 
-    const result=await noteService.getAllNotes(req.user.id,req.user.role,page,limit,search);
+
+const getNotes = async (req, res) => {
+
+    const page =
+        Math.max(parseInt(req.query.page) || 1, 1);
+
+    const limit =
+        Math.min(
+            Math.max(parseInt(req.query.limit) || 10, 1),
+            50
+        );
+
+    const search =
+        req.query.search || "";
+
+    const result =
+        await noteService.getAllNotes(
+            req.user.id,
+            req.user.role,
+            page,
+            limit,
+            search
+        );
+
     return sendSuccess(
-      res,200,"Notes fetched successfully",result
-    )
+        res,
+        200,
+        "Notes fetched successfully",
+        result
+    );
 };
+
 
 const getNoteById = async (req, res) => {
-  const note = await noteService.getNoteById(
-    req.params.id,
-    req.user.id,
-    req.user.role
-  );
 
-  return sendSuccess(
-    res,200,"Note fetched successfully",note
-  )
-};
+    const note =
+        await noteService.getNoteById(
+            req.params.id,
+            req.user.id,
+            req.user.role
+        );
 
-const createNote=async(req,res)=>{
-    const note=await noteService.createNote(req.body,req.user.id);
     return sendSuccess(
-      res,201,"Note created successfully",note
-    )
+        res,
+        200,
+        "Note fetched successfully",
+        note
+    );
 };
 
 
-const updateNote=async(req,res)=>{
-    const note=await noteService.updateNote(
+const createNote = async (req, res) => {
+
+    const note =
+        await noteService.createNote(
+            req.body,
+            req.user.id
+        );
+
+    return sendSuccess(
+        res,
+        201,
+        "Note created successfully",
+        note
+    );
+};
+
+
+const updateNote = async (req, res) => {
+
+    const note =
+        await noteService.updateNote(
+            req.params.id,
+            req.body,
+            req.user.id,
+            req.user.role
+        );
+
+    return sendSuccess(
+        res,
+        200,
+        "Note updated successfully",
+        note
+    );
+};
+
+
+const deleteNote = async (req, res) => {
+
+    await noteService.deleteNote(
         req.params.id,
-        req.body,
         req.user.id,
         req.user.role
     );
+
     return sendSuccess(
-      res,200,"Note updated successfully",note
-    )
+        res,
+        200,
+        "Note deleted successfully"
+    );
 };
 
-const deleteNote=async(req,res)=>{
-    await noteService.deleteNote(req.params.id,req.user.id,req.user.role);
+
+const getNoteWithComments = async (req, res) => {
+
+    const note =
+        await noteService.getNoteWithComments(
+            req.params.id
+        );
+
     return sendSuccess(
-      res,200,"Note deleted successfully"
-    )
+        res,
+        200,
+        "Note with comments fetched successfully",
+        note
+    );
 };
 
-const getNoteWithComments= async(req,res)=>{
-    const note=await noteService.getNoteWithComments(req.params.id);
-    return sendSuccess(
-      res,200,"Note with comments fetched successfully",note
-    )
-};
 
-const uploadAttachment = async (
-  req,
-  res
-) => {
+/*
+==================================================
+UPLOAD NOTE ATTACHMENTS
+==================================================
+*/
 
-  if (!req.files || req.files.length === 0) {
-    throw new AppError(
-      "Please upload at least one file",
-      400
-    );  
-}
+const uploadAttachment = async (req, res) => {
 
-  const compressibleImages = [
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-  ];
+    // --------------------------------------------
+    // Check files
+    // --------------------------------------------
 
-  const attachmentData =
-    await Promise.all(
+    if (
+        !req.files ||
+        req.files.length === 0
+    ) {
+        throw new AppError(
+            "Please upload at least one file",
+            400
+        );
+    }
 
-      req.files.map(
-        async (file) => {
 
-          let uploadedFile;
+    // --------------------------------------------
+    // Compressible image types
+    // --------------------------------------------
 
-          if (
-            compressibleImages.includes(
-              file.mimetype
+    const compressibleImages = [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+    ];
+
+
+    // --------------------------------------------
+    // Process every uploaded file
+    // --------------------------------------------
+
+    const attachmentData =
+        await Promise.all(
+
+            req.files.map(
+                async (file) => {
+
+                    let uploadedFile;
+
+
+                    // =================================
+                    // IMAGE
+                    // =================================
+
+                    if (
+                        compressibleImages.includes(
+                            file.mimetype
+                        )
+                    ) {
+
+                        // Compress and convert image
+                        // to WebP using Sharp
+
+                        const compressedBuffer =
+                            await uploadService.compressImage(
+                                file.buffer
+                            );
+
+
+                        // Upload as Cloudinary image
+
+                        uploadedFile =
+                            await mediaService.uploadFile(
+                                compressedBuffer,
+                                "note-images",
+                                "image"
+                            );
+
+                    }
+
+
+                    // =================================
+                    // PDF / DOCUMENT
+                    // =================================
+
+                    else {
+
+                        // Do NOT compress PDF.
+
+                        // Upload as Cloudinary raw resource.
+
+                        uploadedFile =
+                            await mediaService.uploadFile(
+                                file.buffer,
+                                "note-documents",
+                                "raw"
+                            );
+                    }
+
+
+                    // =================================
+                    // Attachment metadata
+                    // =================================
+
+                    return {
+
+                        url:
+                            uploadedFile.secure_url,
+
+                        publicId:
+                            uploadedFile.public_id,
+
+                        fileName:
+                            file.originalname,
+
+                        fileType:
+                            file.mimetype,
+
+                        size:
+                            uploadedFile.bytes,
+                    };
+                }
             )
-          ) {
+        );
 
-            const compressedBuffer =
-              await uploadService.compressImage(
-                file.buffer
-              );
 
-            uploadedFile =
-              await mediaService.uploadFile(
-                compressedBuffer,
-                "note-images"
-              );
+    // --------------------------------------------
+    // Save attachment information to note
+    // --------------------------------------------
 
-          } else {
+    const note =
+        await noteService.uploadAttachment(
+            req.params.id,
+            req.user.id,
+            attachmentData
+        );
 
-            uploadedFile =
-              await mediaService.uploadFile(
-                file.buffer,
-                "note-documents"
-              );
-          }
 
-          return {
-            url:
-              uploadedFile.secure_url,
+    // --------------------------------------------
+    // Response
+    // --------------------------------------------
 
-            publicId:
-              uploadedFile.public_id,
-
-            fileName:
-              file.originalname,
-
-            fileType:
-              file.mimetype,
-
-            size:
-              uploadedFile.bytes,
-          };
-        }
-      )
+    return sendSuccess(
+        res,
+        200,
+        "Attachment uploaded successfully",
+        note
     );
-
-  const note =
-    await noteService.uploadAttachment(
-      req.params.id,
-      req.user.id,
-      attachmentData
-    );
-
-  return sendSuccess(
-    res,200,"Attachment uploaded successfully",note
-  )
 };
 
 
-const deleteAttachment =
-async (
-  req,
-  res
+/*
+==================================================
+DELETE NOTE ATTACHMENT
+==================================================
+*/
+
+const deleteAttachment = async (
+    req,
+    res
 ) => {
 
-  const note =
-    await noteService
-      .deleteAttachment(
-        req.params.noteId,
-        req.params.attachmentId,
-        req.user.id
-      );
+    const note =
+        await noteService.deleteAttachment(
+            req.params.noteId,
+            req.params.attachmentId,
+            req.user.id
+        );
 
-  return sendSuccess(
-    res,200,"Attachment deleted successfully",note
-  )
+    return sendSuccess(
+        res,
+        200,
+        "Attachment deleted successfully",
+        note
+    );
 };
 
-module.exports={
+
+module.exports = {
+
     getNotes,
+
     getNoteById,
+
     createNote,
+
     updateNote,
+
     deleteNote,
+
     getNoteWithComments,
+
     uploadAttachment,
-    deleteAttachment
-}
+
+    deleteAttachment,
+
+};

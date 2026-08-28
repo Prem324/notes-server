@@ -1,25 +1,34 @@
 const cloudinary =
-require("../config/cloudinary");
-const {uploadToCloudinary}=require("./uploadService");
+    require("../config/cloudinary");
 
-const uploadFile =
-async(buffer,folder)=>{
+const {
+    uploadToCloudinary
+} = require("./uploadService");
+
+
+const uploadFile = async (
+    buffer,
+    folder,
+    resourceType = "image"
+) => {
 
     return await uploadToCloudinary(
         buffer,
-        folder
+        folder,
+        resourceType
     );
 };
 
-const deleteFile =
-async(publicId)=>{
+
+const deleteFile = async (publicId) => {
 
     return await cloudinary
-    .uploader
-    .destroy(publicId);
+        .uploader
+        .destroy(publicId);
 };
 
-module.exports={
+
+module.exports = {
     uploadFile,
     deleteFile,
 };

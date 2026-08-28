@@ -156,7 +156,7 @@ describe("upload middleware", () => {
 
         expect(response.body).toEqual({
             success: false,
-            message: "Only JPG, PNG, WEBP and PDF are allowed",
+            message: "Only JPG, PNG, WEBP and PDF files are allowed",
         });
     });
 
@@ -198,7 +198,7 @@ describe("upload middleware", () => {
         expect(response.body.success).toBe(false);
 
         expect(response.body.message).toBe(
-            "Unexpected field"
+            "Too many files"
         );
     });
 

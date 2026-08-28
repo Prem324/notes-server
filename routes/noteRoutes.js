@@ -18,6 +18,9 @@ const{
     
 }=require("../controllers/noteController");
 
+const validateFileContent = require("../middleware/validateFileContent");
+const validateImageMiddleware = require("../middleware/validateImage");
+
 
 /**
  * @swagger
@@ -223,7 +226,13 @@ router.get("/:id/comments",auth,asyncHandler(getNoteWithComments));
  *       404:
  *         description: Note not found
  */
-router.post("/:id/attachments",auth,upload.array("attachments",5),asyncHandler(uploadAttachment));
+router.post(
+    "/:id/attachments",
+    auth,
+    upload.array("attachments",5),
+    validateFileContent,
+    validateImageMiddleware,
+    asyncHandler(uploadAttachment));
 
 
 /**

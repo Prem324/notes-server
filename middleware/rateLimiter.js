@@ -1,33 +1,70 @@
-const rateLimit=require("express-rate-limit");
+const rateLimit = require("express-rate-limit");
+const { RedisStore } = require("rate-limit-redis");
 
-const loginLimiter=rateLimit({
-    windowMs:15*60*1000,
-    max:5,
-    message:{
-        success:false,
-        message:"Too many login attempts. Please try again later."
-    },
+const redisConnection = require("../config/redis");
 
-    standardHeaders:true,
-    legacyHeaders:false,
-});
 
-const registerLimiter=rateLimit({
-    windowMs:60 * 60 * 1000,
-    max:3,
-    message:{
-        success:false,
+const loginLimiter = rateLimit({
+
+    windowMs: 15 * 60 * 1000,
+
+    max: 5,
+
+    standardHeaders: true,
+
+    legacyHeaders: false,
+
+    store: new RedisStore({
+        sendCommand: (...args) =>
+            redisConnection.call(...args),
+    }),
+
+    message: {
+        success: false,
         message:
-        "Too many registration attempts. Please try again later."
+            "Too many login attempts. Please try again later.",
     },
-
-    standardHeaders:true,
-    legacyHeaders:false,
 });
+
+
+const registerLimiter = rateLimit({
+
+    windowMs: 60 * 60 * 1000,
+
+    max: 3,
+
+    standardHeaders: true,
+
+    legacyHeaders: false,
+
+    store: new RedisStore({
+        sendCommand: (...args) =>
+            redisConnection.call(...args),
+    }),
+
+    message: {
+        success: false,
+        message:
+            "Too many registration attempts. Please try again later.",
+    },
+});
+
 
 const forgotPasswordLimiter = rateLimit({
+
     windowMs: 15 * 60 * 1000,
+
     max: 5,
+
+    standardHeaders: true,
+
+    legacyHeaders: false,
+
+    store: new RedisStore({
+        sendCommand: (...args) =>
+            redisConnection.call(...args),
+    }),
+
     message: {
         success: false,
         message:
@@ -35,4 +72,9 @@ const forgotPasswordLimiter = rateLimit({
     },
 });
 
-module.exports={loginLimiter,registerLimiter,forgotPasswordLimiter};
+
+module.exports = {
+    loginLimiter,
+    registerLimiter,
+    forgotPasswordLimiter,
+};

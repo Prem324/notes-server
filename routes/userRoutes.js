@@ -5,6 +5,8 @@ const auth=require("../middleware/auth");
 const {getProfile,uploadProfilePicture,deleteProfilePicture}=require("../controllers/userController");
 
 const upload=require("../middleware/upload");
+const validateFileContent = require("../middleware/validateFileContent");
+const validateImageMiddleware = require("../middleware/validateImage");
 
 
 /**
@@ -58,7 +60,13 @@ router.get("/profile",auth,asyncHandler(getProfile));
  *       404:
  *         description: User not found
  */
-router.patch("/profile-picture",auth,upload.single("profilePicture"),asyncHandler(uploadProfilePicture));
+router.patch(
+    "/profile-picture",
+    auth,
+    upload.single("profilePicture"),
+    validateFileContent,
+    validateImageMiddleware,
+    asyncHandler(uploadProfilePicture));
 
 
 /**
