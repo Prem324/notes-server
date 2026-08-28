@@ -6,7 +6,11 @@ const config = require("./env");
 const redisConnection = new IORedis({
     host: config.redis.host,
     port: config.redis.port,
-    maxRetriesPerRequest: null,
+    lazyConnect: true,
+    enableOfflineQueue: false,
+    maxRetriesPerRequest: 1,
+    connectTimeout: 1000,
+    retryStrategy: () => null,
 });
 
 module.exports = redisConnection;

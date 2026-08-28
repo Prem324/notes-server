@@ -9,6 +9,13 @@ const {
     noteByIdKey,
 } = require("../utils/cacheKeys");
 
+const invalidateUserNotesCache = async (userId) => {
+
+    await redisService.delByPattern(
+        notesUserPattern(userId)
+    );
+};
+
 
 // ============================================================
 // GET ALL NOTES
@@ -261,10 +268,14 @@ const createNote = async (
     userId
 ) => {
 
-    return await Note.create({
+    const note = await Note.create({
         ...data,
         user: userId,
     });
+
+    await invalidateUserNotesCache(userId);
+
+    return note;
 };
 
 
@@ -317,6 +328,10 @@ const updateNote = async (
 
 
     await note.save();
+
+    await invalidateUserNotesCache(
+        note.user.toString()
+    );
 
 
     return note;
@@ -402,6 +417,10 @@ const deleteNote = async (
 
     await Note.findByIdAndDelete(
         noteId
+    );
+
+    await invalidateUserNotesCache(
+        note.user.toString()
     );
 
 
@@ -505,6 +524,10 @@ const uploadAttachment = async (
             }
         );
 
+    await invalidateUserNotesCache(
+        note.user.toString()
+    );
+
 
     return updatedNote;
 };
@@ -579,10 +602,14 @@ const deleteAttachment =
         );
 
 
-        await note.save();
+    await note.save();
+
+    await invalidateUserNotesCache(
+        note.user.toString()
+    );
 
 
-        return note;
+    return note;
     };
 
 

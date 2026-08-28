@@ -72,7 +72,12 @@ const createTestApp = () => {
 // Tests
 // ============================================================
 
-describe(
+const describeRedisIntegration =
+    process.env.RUN_REDIS_INTEGRATION === "true"
+        ? describe
+        : describe.skip;
+
+describeRedisIntegration(
     "Redis Rate Limiter Integration",
     () => {
 

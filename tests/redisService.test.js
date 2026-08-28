@@ -2,7 +2,12 @@ const redisService = require("../services/redisService");
 const redisConnection = require("../config/redis");
 
 
-describe("redisService", () => {
+const describeRedisIntegration =
+    process.env.RUN_REDIS_INTEGRATION === "true"
+        ? describe
+        : describe.skip;
+
+describeRedisIntegration("redisService", () => {
 
     const testKey =
         `test:redis:${Date.now()}`;
