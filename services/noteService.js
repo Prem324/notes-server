@@ -18,32 +18,21 @@ const getAllNotes = async (
 
     const query = {};
 
-
     if (role !== "admin") {
-
         query.user = userId;
-
     }
 
-
     if (search) {
-
         query.$text = {
             $search: search,
         };
-
     }
-
 
     const totalNotes =
         await Note.countDocuments(query);
 
-
     const totalPages =
-        Math.ceil(
-            totalNotes / limit
-        );
-
+        Math.ceil(totalNotes / limit);
 
     const notes =
         await Note.find(query)
@@ -60,8 +49,7 @@ const getAllNotes = async (
             })
             .lean();
 
-
-    const result = {
+    return {
 
         notes,
 
@@ -84,9 +72,6 @@ const getAllNotes = async (
         },
 
     };
-
-
-    return result;
 };
 
 
@@ -101,10 +86,7 @@ const getNoteById = async (
 ) => {
 
     const note =
-        await Note.findById(
-            noteId
-        );
-
+        await Note.findById(noteId);
 
     if (!note) {
 
@@ -114,7 +96,6 @@ const getNoteById = async (
         );
 
     }
-
 
     if (
         role !== "admin" &&
@@ -128,7 +109,6 @@ const getNoteById = async (
 
     }
 
-
     return note;
 };
 
@@ -139,7 +119,8 @@ const getNoteById = async (
 
 const createNote = async (
     data,
-    userId
+    userId,
+    auditContext = {}
 ) => {
 
     const note =
@@ -148,18 +129,27 @@ const createNote = async (
             user: userId,
         });
 
-
-    // Audit log
     await auditService.log({
+
         userId,
+
         action: "NOTE_CREATED",
+
         resource: "Note",
+
         resourceId: note._id,
+
         metadata: {
             title: note.title,
         },
-    });
 
+        ipAddress:
+            auditContext.ipAddress || null,
+
+        userAgent:
+            auditContext.userAgent || null,
+
+    });
 
     return note;
 };
@@ -173,12 +163,12 @@ const updateNote = async (
     id,
     data,
     userId,
-    role
+    role,
+    auditContext = {}
 ) => {
 
     const note =
         await Note.findById(id);
-
 
     if (!note) {
 
@@ -188,7 +178,6 @@ const updateNote = async (
         );
 
     }
-
 
     if (
         role !== "admin" &&
@@ -202,7 +191,6 @@ const updateNote = async (
 
     }
 
-
     note.title =
         data.title ?? note.title;
 
@@ -212,22 +200,30 @@ const updateNote = async (
     note.completed =
         data.completed ?? note.completed;
 
-
     await note.save();
 
-
-    // Audit log
     await auditService.log({
+
         userId,
+
         action: "NOTE_UPDATED",
+
         resource: "Note",
+
         resourceId: note._id,
+
         metadata: {
             title: note.title,
             role,
         },
-    });
 
+        ipAddress:
+            auditContext.ipAddress || null,
+
+        userAgent:
+            auditContext.userAgent || null,
+
+    });
 
     return note;
 };
@@ -240,12 +236,12 @@ const updateNote = async (
 const deleteNote = async (
     noteId,
     userId,
-    role
+    role,
+    auditContext = {}
 ) => {
 
     const note =
         await Note.findById(noteId);
-
 
     if (!note) {
 
@@ -255,7 +251,6 @@ const deleteNote = async (
         );
 
     }
-
 
     if (
         role !== "admin" &&
@@ -268,7 +263,6 @@ const deleteNote = async (
         );
 
     }
-
 
     // Delete Cloudinary attachments
     if (
@@ -309,24 +303,32 @@ const deleteNote = async (
 
     }
 
-
     await Note.findByIdAndDelete(
         noteId
     );
 
-
-    // Audit log
     await auditService.log({
+
         userId,
+
         action: "NOTE_DELETED",
+
         resource: "Note",
+
         resourceId: noteId,
+
         metadata: {
             title: note.title,
             role,
         },
-    });
 
+        ipAddress:
+            auditContext.ipAddress || null,
+
+        userAgent:
+            auditContext.userAgent || null,
+
+    });
 
     return {
         message:
@@ -358,7 +360,6 @@ const getNoteWithComments =
                     },
                 });
 
-
         if (!note) {
 
             throw new AppError(
@@ -367,7 +368,6 @@ const getNoteWithComments =
             );
 
         }
-
 
         return note;
     };
@@ -381,14 +381,12 @@ const uploadAttachment = async (
     noteId,
     userId,
     attachments,
-    role
+    role,
+    auditContext = {}
 ) => {
 
     const note =
-        await Note.findById(
-            noteId
-        );
-
+        await Note.findById(noteId);
 
     if (!note) {
 
@@ -398,7 +396,6 @@ const uploadAttachment = async (
         );
 
     }
-
 
     if (
         role !== "admin" &&
@@ -411,7 +408,6 @@ const uploadAttachment = async (
         );
 
     }
-
 
     const updatedNote =
         await Note.findByIdAndUpdate(
@@ -428,20 +424,32 @@ const uploadAttachment = async (
             }
         );
 
-
-    // Audit log
     await auditService.log({
+
         userId,
+
         action: "ATTACHMENT_UPLOADED",
+
         resource: "Note",
+
         resourceId: noteId,
+
         metadata: {
+
             attachmentCount:
                 attachments.length,
-            role,
-        },
-    });
 
+            role,
+
+        },
+
+        ipAddress:
+            auditContext.ipAddress || null,
+
+        userAgent:
+            auditContext.userAgent || null,
+
+    });
 
     return updatedNote;
 };
@@ -456,14 +464,12 @@ const deleteAttachment =
         noteId,
         attachmentId,
         userId,
-        role
+        role,
+        auditContext = {}
     ) => {
 
         const note =
-            await Note.findById(
-                noteId
-            );
-
+            await Note.findById(noteId);
 
         if (!note) {
 
@@ -473,7 +479,6 @@ const deleteAttachment =
             );
 
         }
-
 
         if (
             role !== "admin" &&
@@ -487,14 +492,12 @@ const deleteAttachment =
 
         }
 
-
         const attachment =
             note.attachments.find(
                 item =>
                     item._id.toString() ===
                     attachmentId
             );
-
 
         if (!attachment) {
 
@@ -505,34 +508,44 @@ const deleteAttachment =
 
         }
 
-
         await mediaService.deleteFile(
             attachment.publicId
         );
-
 
         note.attachments.pull(
             attachmentId
         );
 
-
         await note.save();
 
-
-        // Audit log
         await auditService.log({
+
             userId,
+
             action: "ATTACHMENT_DELETED",
+
             resource: "Note",
+
             resourceId: noteId,
+
             metadata: {
+
                 attachmentId,
+
                 fileName:
                     attachment.fileName,
-                role,
-            },
-        });
 
+                role,
+
+            },
+
+            ipAddress:
+                auditContext.ipAddress || null,
+
+            userAgent:
+                auditContext.userAgent || null,
+
+        });
 
         return note;
     };

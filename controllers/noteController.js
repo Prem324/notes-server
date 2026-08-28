@@ -5,6 +5,20 @@ const AppError = require("../utils/AppError");
 const { sendSuccess } = require("../utils/apiResponse");
 
 
+// ============================================================
+// AUDIT REQUEST CONTEXT
+// ============================================================
+
+const getAuditContext = (req) => ({
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+});
+
+
+// ============================================================
+// GET ALL NOTES
+// ============================================================
+
 const getNotes = async (req, res) => {
 
     const page =
@@ -37,6 +51,10 @@ const getNotes = async (req, res) => {
 };
 
 
+// ============================================================
+// GET NOTE BY ID
+// ============================================================
+
 const getNoteById = async (req, res) => {
 
     const note =
@@ -55,12 +73,17 @@ const getNoteById = async (req, res) => {
 };
 
 
+// ============================================================
+// CREATE NOTE
+// ============================================================
+
 const createNote = async (req, res) => {
 
     const note =
         await noteService.createNote(
             req.body,
-            req.user.id
+            req.user.id,
+            getAuditContext(req)
         );
 
     return sendSuccess(
@@ -72,6 +95,10 @@ const createNote = async (req, res) => {
 };
 
 
+// ============================================================
+// UPDATE NOTE
+// ============================================================
+
 const updateNote = async (req, res) => {
 
     const note =
@@ -79,7 +106,8 @@ const updateNote = async (req, res) => {
             req.params.id,
             req.body,
             req.user.id,
-            req.user.role
+            req.user.role,
+            getAuditContext(req)
         );
 
     return sendSuccess(
@@ -91,12 +119,17 @@ const updateNote = async (req, res) => {
 };
 
 
+// ============================================================
+// DELETE NOTE
+// ============================================================
+
 const deleteNote = async (req, res) => {
 
     await noteService.deleteNote(
         req.params.id,
         req.user.id,
-        req.user.role
+        req.user.role,
+        getAuditContext(req)
     );
 
     return sendSuccess(
@@ -106,6 +139,10 @@ const deleteNote = async (req, res) => {
     );
 };
 
+
+// ============================================================
+// GET NOTE WITH COMMENTS
+// ============================================================
 
 const getNoteWithComments = async (req, res) => {
 
@@ -123,11 +160,9 @@ const getNoteWithComments = async (req, res) => {
 };
 
 
-/*
-==================================================
-UPLOAD NOTE ATTACHMENTS
-==================================================
-*/
+// ============================================================
+// UPLOAD NOTE ATTACHMENTS
+// ============================================================
 
 const uploadAttachment = async (req, res) => {
 
@@ -180,16 +215,11 @@ const uploadAttachment = async (req, res) => {
                         )
                     ) {
 
-                        // Compress and convert image
-                        // to WebP using Sharp
-
                         const compressedBuffer =
                             await uploadService.compressImage(
                                 file.buffer
                             );
 
-
-                        // Upload as Cloudinary image
 
                         uploadedFile =
                             await mediaService.uploadFile(
@@ -206,10 +236,6 @@ const uploadAttachment = async (req, res) => {
                     // =================================
 
                     else {
-
-                        // Do NOT compress PDF.
-
-                        // Upload as Cloudinary raw resource.
 
                         uploadedFile =
                             await mediaService.uploadFile(
@@ -254,7 +280,9 @@ const uploadAttachment = async (req, res) => {
         await noteService.uploadAttachment(
             req.params.id,
             req.user.id,
-            attachmentData
+            attachmentData,
+            req.user.role,
+            getAuditContext(req)
         );
 
 
@@ -271,11 +299,9 @@ const uploadAttachment = async (req, res) => {
 };
 
 
-/*
-==================================================
-DELETE NOTE ATTACHMENT
-==================================================
-*/
+// ============================================================
+// DELETE NOTE ATTACHMENT
+// ============================================================
 
 const deleteAttachment = async (
     req,
@@ -286,7 +312,9 @@ const deleteAttachment = async (
         await noteService.deleteAttachment(
             req.params.noteId,
             req.params.attachmentId,
-            req.user.id
+            req.user.id,
+            req.user.role,
+            getAuditContext(req)
         );
 
     return sendSuccess(
