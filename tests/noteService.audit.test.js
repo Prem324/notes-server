@@ -82,6 +82,10 @@ describe("noteService audit logging", () => {
         title: "Test Note",
     },
 
+    ipAddress: null,
+    
+    userAgent: null,
+
 });
 
     });

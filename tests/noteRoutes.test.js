@@ -227,7 +227,8 @@ describe("Note Routes", () => {
                 noteService.createNote
             ).toHaveBeenCalledWith(
                 requestBody,
-                "user123"
+                "user123",
+                { ipAddress: "::ffff:127.0.0.1", userAgent: undefined }
             );
         }
     );
@@ -285,7 +286,8 @@ describe("Note Routes", () => {
                 "note123",
                 requestBody,
                 "user123",
-                "user"
+                "user",
+                { ipAddress: "::ffff:127.0.0.1", userAgent: undefined }
             );
         }
     );
@@ -325,7 +327,8 @@ describe("Note Routes", () => {
             ).toHaveBeenCalledWith(
                 "note123",
                 "user123",
-                "user"
+                "user",
+                { ipAddress: "::ffff:127.0.0.1", userAgent: undefined }
             );
         }
     );
@@ -431,7 +434,9 @@ describe("Note Routes", () => {
             ).toHaveBeenCalledWith(
                 "note123",
                 "attachment123",
-                "user123"
+                "user123",
+                "user",
+                { ipAddress: "::ffff:127.0.0.1", userAgent: undefined }
             );
         }
     );
@@ -636,7 +641,9 @@ describe("Note Routes", () => {
                         size:
                             12345,
                     },
-                ]
+                ],
+                "user",
+                { ipAddress: "::ffff:127.0.0.1", userAgent: undefined }
             );
         }
     );
@@ -797,7 +804,9 @@ describe("Note Routes", () => {
                         size:
                             5000,
                     },
-                ]
+                ],
+                "user",
+                { ipAddress: "::ffff:127.0.0.1", userAgent: undefined }
             );
         }
     );
