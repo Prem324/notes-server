@@ -2,7 +2,7 @@ const Note = require("../models/Note");
 const mediaService = require("./mediaService");
 const auditService = require("./auditService");
 const AppError = require("../utils/AppError");
-
+const logger=require("../config/logger");
 
 // ============================================================
 // GET ALL NOTES
@@ -289,10 +289,16 @@ const deleteNote = async (
 
                     } catch (error) {
 
-                        console.error(
-                            "Cloudinary delete failed:",
-                            attachment.publicId
-                        );
+                        logger.error(
+                            {
+                                service:"Cloudinary",
+                                publicId:attachment.publicId,
+                                error:{
+                                    message:error.message,
+                                },
+                            },
+                            "Cloudinary file deletion failed"
+                        )
 
                     }
 

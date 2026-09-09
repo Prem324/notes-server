@@ -11,6 +11,7 @@ const requestLogger = (req, res, next) => {
         const duration = Date.now() - start;
 
         console.log({
+            requestId: req.requestId,
             method: req.method,
             url: req.originalUrl,
             statusCode: res.statusCode,

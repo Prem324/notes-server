@@ -1,5 +1,6 @@
 const nodemailer = require("nodemailer");
 const config = require("../config/env");
+const logger=require("../config/logger");
 
 const transporter = nodemailer.createTransport({
     host: config.email.host,
@@ -52,13 +53,21 @@ If you did not request this password reset, you can safely ignore this email.
         });
 
         console.log("✅ Email actually sent");
-        console.log("Message ID:", info.messageId);
-        console.log("Response:", info.response);
+        logger.info("Message ID:", info.messageId);
+        logger.info("Response:", info.response);
 
         return info;
     } catch (error) {
-        console.error("❌ sendMail failed:");
-        console.error(error);
+        logger.error(
+            {
+                service:"email",
+                error:{
+                    message:error.message,
+                    stack:error.stack,
+                },
+            },
+            "Email sending failed"
+        );
 
         throw error;
     }

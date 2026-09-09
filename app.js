@@ -11,6 +11,8 @@ const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./config/swagger");
 const compression = require("compression");
 const cookieParser = require("cookie-parser");
+const requestId = require("./middleware/requestId");
+const httpLogger = require("./middleware/httpLogger");
 
 
 const healthRoutes = require("./routes/healthRoutes");
@@ -25,6 +27,8 @@ const analyticsRoutes = require("./routes/analyticsRoutes");
 const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
+app.use(requestId);
+app.use(httpLogger);
 app.disable("x-powered-by");
 app.use(helmet());
 app.use(cors({origin:config.clientUrl,credentials:true}));

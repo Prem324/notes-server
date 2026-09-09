@@ -1,12 +1,29 @@
 const mongoose=require("mongoose");
 const config=require("./env");
+const logger=require("./logger");
+
 const connectDB=async()=>{
     try{
         await mongoose.connect(config.mongoUri);
-        console.log("MongoDB Connected");
+        logger.info(
+            {
+             database:"MongoDB",   
+            },
+            "Database connected successfully"
+        );
     }catch(error){
-        console.error("MongoDB connection failed:",error.message);
+        logger.error(
+            {
+                database:"MongoDB",
+                error:{
+                    message:error.message,
+                    stack:error.stack,
+                },
+            },
+            "Database connection failed"
+        );
         process.exit(1);
+        
     }
 }
 

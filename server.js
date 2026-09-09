@@ -3,6 +3,7 @@ const connectDB = require("./config/db");
 const config = require("./config/env");
 const mongoose = require("mongoose");
 const {initSocket}=require("./config/socket");
+const logger=require("./config/logger");
 
 let server;
 
@@ -10,7 +11,13 @@ const startServer = async () => {
     await connectDB();
 
     server = app.listen(config.port, () => {
-        console.log(`Server running on ${config.port}`);
+        logger.info(
+            {
+                port: config.port,
+                env: config.nodeEnv,
+            },
+            "Server started successfully"
+        );
     });
 
     initSocket(server);

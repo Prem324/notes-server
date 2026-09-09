@@ -1,9 +1,12 @@
 const config = require("../config/env");
+const logger = require("../config/logger");
 
 const errorHandler = (err, req, res, next) => {
 
     let statusCode = err.statusCode || 500;
     let message = err.message || "Server Error";
+
+    const requestId = req.requestId;
 
 
     // =========================
@@ -37,14 +40,48 @@ const errorHandler = (err, req, res, next) => {
 
 
     // =========================
-    // Log unexpected errors
+    // Log errors
     // =========================
 
-    if (statusCode === 500) {
-        console.error({
-            message: err.message,
-            stack: err.stack,
-        });
+    if (statusCode >= 500) {
+
+        logger.error(
+            {
+                requestId,
+
+                error: {
+                    name: err.name,
+                    message: err.message,
+                    stack: err.stack,
+                },
+
+                request: {
+                    method: req.method,
+                    url: req.originalUrl,
+                    ip: req.ip,
+                },
+            },
+            "Internal server error"
+        );
+
+    } else {
+
+        logger.warn(
+            {
+                requestId,
+
+                error: {
+                    name: err.name,
+                    message: err.message,
+                },
+
+                request: {
+                    method: req.method,
+                    url: req.originalUrl,
+                },
+            },
+            "Request failed"
+        );
     }
 
 
@@ -60,10 +97,20 @@ const errorHandler = (err, req, res, next) => {
     }
 
 
+    // =========================
+    // Response
+    // =========================
+
     return res.status(statusCode).json({
+
         success: false,
+
         message,
+
+        requestId,
+
     });
 };
+
 
 module.exports = errorHandler;
