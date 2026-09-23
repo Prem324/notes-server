@@ -43,6 +43,12 @@ const noteSchema=new mongoose.Schema({
         type:Boolean,
         default:false
     },
+    tags: [
+    {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Tag",
+    },
+],
     user:{
         type:mongoose.Schema.Types.ObjectId,
         ref:"User",

@@ -14,6 +14,10 @@ const cookieParser = require("cookie-parser");
 const requestId = require("./middleware/requestId");
 const httpLogger = require("./middleware/httpLogger");
 
+const featureFlags = require("./config/featureFlags");
+
+console.log("Feature Flags:", featureFlags);
+
 
 const healthRoutes = require("./routes/healthRoutes");
 const authRoutes = require("./routes/authRoutes");
@@ -22,6 +26,8 @@ const noteRoutes = require("./routes/noteRoutes");
 const userRoutes = require("./routes/userRoutes");
 const commentRoutes = require("./routes/commentRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
+const configRoutes = require("./routes/configRoutes");
+const tagRoutes = require("./routes/tagRoutes");
 //const exportRoutes = require("./routes/exportRoutes");
 
 const errorHandler = require("./middleware/errorHandler");
@@ -66,10 +72,12 @@ app.use(`${API_PREFIX}/notes`, noteRoutes);
 app.use(`${API_PREFIX}/users`, userRoutes);
 app.use(`${API_PREFIX}/comments`, commentRoutes);
 app.use(`${API_PREFIX}/analytics`, analyticsRoutes);
+app.use(`${API_PREFIX}/tags`, tagRoutes);
 //app.use(`${API_PREFIX}/exports`, exportRoutes);
 
-app.use("/uploads", express.static("uploads"));
+app.use(`${API_PREFIX}/config`, configRoutes);
 
+app.use("/uploads", express.static("uploads"));
 
 app.use(errorHandler);
 

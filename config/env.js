@@ -44,5 +44,11 @@ module.exports = {
         user: process.env.EMAIL_USER,
         password: process.env.EMAIL_PASSWORD,
         from: process.env.EMAIL_FROM,
-    },    
+    },   
+    features: {
+        tags: process.env.FEATURE_TAGS,
+        noteSharing: process.env.FEATURE_NOTE_SHARING,
+        notifications: process.env.FEATURE_NOTIFICATIONS,
+        activityTimeline: process.env.FEATURE_ACTIVITY_TIMELINE,
+    },
 };

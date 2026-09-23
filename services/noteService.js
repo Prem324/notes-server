@@ -3,6 +3,7 @@ const mediaService = require("./mediaService");
 const auditService = require("./auditService");
 const AppError = require("../utils/AppError");
 const logger=require("../config/logger");
+const tagService = require("./tagService");
 
 // ============================================================
 // GET ALL NOTES
@@ -35,20 +36,20 @@ const getAllNotes = async (
         Math.ceil(totalNotes / limit);
 
     const notes =
-        await Note.find(query)
-            .populate(
-                "user",
-                "name email role"
-            )
-            .skip(
-                (page - 1) * limit
-            )
-            .limit(limit)
-            .sort({
-                createdAt: -1,
-            })
-            .lean();
-
+    await Note.find(query)
+        .populate(
+            "user",
+            "name email role"
+        )
+        .populate("tags", "name")
+        .skip(
+            (page - 1) * limit
+        )
+        .limit(limit)
+        .sort({
+            createdAt: -1,
+        })
+        .lean();
     return {
 
         notes,
@@ -86,7 +87,8 @@ const getNoteById = async (
 ) => {
 
     const note =
-        await Note.findById(noteId);
+    await Note.findById(noteId)
+        .populate("tags", "name");    
 
     if (!note) {
 
@@ -122,6 +124,13 @@ const createNote = async (
     userId,
     auditContext = {}
 ) => {
+
+    if (data.tags !== undefined) {
+        await tagService.validateUserTags({
+            tagIds: data.tags,
+            userId,
+        });
+    }
 
     const note =
         await Note.create({
@@ -190,6 +199,15 @@ const updateNote = async (
         );
 
     }
+
+    if (data.tags !== undefined) {
+    await tagService.validateUserTags({
+        tagIds: data.tags,
+        userId,
+    });
+
+    note.tags = data.tags;
+}
 
     note.title =
         data.title ?? note.title;
@@ -364,7 +382,8 @@ const getNoteWithComments =
                         path: "user",
                         select: "name email",
                     },
-                });
+                })
+                .populate("tags", "name")
 
         if (!note) {
 
