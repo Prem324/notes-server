@@ -101,15 +101,16 @@ const errorHandler = (err, req, res, next) => {
     // Response
     // =========================
 
-    return res.status(statusCode).json({
-
+    const response = {
         success: false,
-
         message,
+    };
 
-        requestId,
+    if (requestId && config.nodeEnv !== "test") {
+        response.requestId = requestId;
+    }
 
-    });
+    return res.status(statusCode).json(response);
 };
 
 

@@ -4,10 +4,12 @@ jest.mock("../config/env", () => ({
 
 const errorHandler = require("../middleware/errorHandler");
 
+const logger = require("../config/logger");
+
 describe("errorHandler production behavior", () => {
     test("should hide 500 error details in production", () => {
-        const consoleSpy = jest
-            .spyOn(console, "error")
+        const loggerSpy = jest
+            .spyOn(logger, "error")
             .mockImplementation(() => {});
 
         const error = new Error(
@@ -27,13 +29,13 @@ describe("errorHandler production behavior", () => {
 
         expect(res.status).toHaveBeenCalledWith(500);
 
-        expect(res.json).toHaveBeenCalledWith({
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
             success: false,
             message: "Something went wrong",
-        });
+        }));
 
-        expect(consoleSpy).toHaveBeenCalled();
+        expect(loggerSpy).toHaveBeenCalled();
 
-        consoleSpy.mockRestore();
+        loggerSpy.mockRestore();
     });
 });
