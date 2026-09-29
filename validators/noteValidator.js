@@ -15,6 +15,7 @@ const noteSchema = Joi.object({
         .items(
             Joi.string().hex().length(24)
         ),
+    folder: Joi.string().hex().length(24).allow(null),
 });
 
 module.exports = noteSchema;

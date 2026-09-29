@@ -13,6 +13,7 @@ const featureFlags = {
     noteSharing: toBoolean(config.features?.noteSharing),
     notifications: toBoolean(config.features?.notifications),
     activityTimeline: toBoolean(config.features?.activityTimeline),
+    folders: toBoolean(config.features?.folders),
 };
 
 module.exports = featureFlags;

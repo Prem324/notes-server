@@ -1,6 +1,7 @@
 process.env.NODE_ENV = "test";
 process.env.JWT_SECRET = "testsecret";
 process.env.MONGO_URI = "mongodb://localhost/test";
+process.env.FEATURE_FOLDERS = "true";
 
 jest.mock("../middleware/rateLimiter", () => {
     return {
@@ -365,5 +366,385 @@ test("GET /api/v1/notes should return pagination metadata", async () => {
         hasNextPage: true,
         hasPrevPage: false,
     });
+});
+
+test("should create a note with a valid folder", async () => {
+    const token = await registerAndLogin(
+        "Prem",
+        "prem-folder-create@example.com"
+    );
+
+    const folderResponse = await request(app)
+        .post("/api/v1/folders")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            name: "Work",
+        });
+
+    expect(folderResponse.status).toBe(201);
+
+    const folderId = folderResponse.body.data._id;
+
+    const response = await request(app)
+        .post("/api/v1/notes")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            title: "Work Note",
+            content: "This note belongs to Work folder",
+            folder: folderId,
+        });
+
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.folder.toString()).toBe(folderId);
+});
+
+test("should reject creating a note with another user's folder", async () => {
+    const user1Token = await registerAndLogin(
+        "Prem",
+        "prem-folder-owner@example.com"
+    );
+
+    const user2Token = await registerAndLogin(
+        "User Two",
+        "prem-folder-attacker@example.com"
+    );
+
+    const folderResponse = await request(app)
+        .post("/api/v1/folders")
+        .set("Authorization", `Bearer ${user1Token}`)
+        .send({
+            name: "Private",
+        });
+
+    const folderId = folderResponse.body.data._id;
+
+    const response = await request(app)
+        .post("/api/v1/notes")
+        .set("Authorization", `Bearer ${user2Token}`)
+        .send({
+            title: "Unauthorized Note",
+            content: "Trying to use another user's folder",
+            folder: folderId,
+        });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+});
+
+test("should create a note without a folder", async () => {
+    const token = await registerAndLogin(
+        "Prem",
+        "prem-no-folder@example.com"
+    );
+
+    const response = await request(app)
+        .post("/api/v1/notes")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            title: "No Folder Note",
+            content: "This note does not belong to a folder",
+        });
+
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
+});
+
+
+test("should update a note with a valid folder", async () => {
+    const token = await registerAndLogin(
+        "Prem",
+        "prem-folder-update@example.com"
+    );
+
+    const folder1Response = await request(app)
+        .post("/api/v1/folders")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            name: "Work",
+        });
+
+    const folder2Response = await request(app)
+        .post("/api/v1/folders")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            name: "Personal",
+        });
+
+    const workFolderId = folder1Response.body.data._id;
+    const personalFolderId = folder2Response.body.data._id;
+
+    const noteResponse = await request(app)
+        .post("/api/v1/notes")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            title: "My Note",
+            content: "Original content",
+            folder: workFolderId,
+        });
+
+    expect(noteResponse.status).toBe(201);
+
+    const noteId = noteResponse.body.data._id;
+
+    const response = await request(app)
+        .put(`/api/v1/notes/${noteId}`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            title: "My Note",
+            content: "Original content",
+            folder: personalFolderId,
+        });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.folder.toString()).toBe(
+        personalFolderId
+    );
+});
+
+    
+  
+
+test("should reject updating a note with another user's folder", async () => {
+    const ownerToken = await registerAndLogin(
+        "Prem",
+        "prem-note-owner@example.com"
+    );
+
+    const otherUserToken = await registerAndLogin(
+        "User Two",
+        "prem-other-user@example.com"
+    );
+
+    const ownerFolderResponse = await request(app)
+        .post("/api/v1/folders")
+        .set("Authorization", `Bearer ${ownerToken}`)
+        .send({
+            name: "Owner Folder",
+        });
+
+    const ownerFolderId = ownerFolderResponse.body.data._id;
+
+    const noteResponse = await request(app)
+        .post("/api/v1/notes")
+        .set("Authorization", `Bearer ${ownerToken}`)
+        .send({
+            title: "Owner Note",
+            content: "Owner content",
+        });
+
+    const noteId = noteResponse.body.data._id;
+
+    const otherFolderResponse = await request(app)
+        .post("/api/v1/folders")
+        .set("Authorization", `Bearer ${otherUserToken}`)
+        .send({
+            name: "Other User Folder",
+        });
+
+    const otherFolderId = otherFolderResponse.body.data._id;
+
+    const response = await request(app)
+        .put(`/api/v1/notes/${noteId}`)
+        .set("Authorization", `Bearer ${ownerToken}`)
+        .send({
+            folder: otherFolderId,
+        });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+});
+
+test("should populate folder when fetching notes", async () => {
+    const token = await registerAndLogin(
+        "Prem",
+        "prem-folder-populate@example.com"
+    );
+
+    const folderResponse = await request(app)
+        .post("/api/v1/folders")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ name: "Work" });
+
+    const folderId = folderResponse.body.data._id;
+
+    await request(app)
+        .post("/api/v1/notes")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            title: "Work Note",
+            content: "Important work",
+            folder: folderId,
+        });
+
+    const response = await request(app)
+        .get("/api/v1/notes")
+        .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+
+    const note = response.body.data.notes[0];
+
+    expect(note.folder).toBeDefined();
+    expect(note.folder._id.toString()).toBe(folderId);
+    expect(note.folder.name).toBe("Work");
+});
+
+test("should populate folder when fetching a single note", async () => {
+    const token = await registerAndLogin(
+        "Prem",
+        "prem-folder-single@example.com"
+    );
+
+    const folderResponse = await request(app)
+        .post("/api/v1/folders")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ name: "Personal" });
+
+    const folderId = folderResponse.body.data._id;
+
+    const noteResponse = await request(app)
+        .post("/api/v1/notes")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            title: "Personal Note",
+            content: "Private content",
+            folder: folderId,
+        });
+
+    const noteId = noteResponse.body.data._id;
+
+    const response = await request(app)
+        .get(`/api/v1/notes/${noteId}`)
+        .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+
+    const note = response.body.data;
+
+    expect(note.folder).toBeDefined();
+    expect(note.folder._id.toString()).toBe(folderId);
+    expect(note.folder.name).toBe("Personal");
+});
+
+test("should return populated folder when fetching notes", async () => {
+    const token = await registerAndLogin(
+        "Prem",
+        "prem-folder-read@example.com"
+    );
+
+    const folderResponse = await request(app)
+        .post("/api/v1/folders")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            name: "Work",
+        });
+
+    const folderId = folderResponse.body.data._id;
+
+    await request(app)
+        .post("/api/v1/notes")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            title: "Folder Note",
+            content: "Note inside Work folder",
+            folder: folderId,
+        });
+
+    const response = await request(app)
+        .get("/api/v1/notes")
+        .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+
+    const note = response.body.data.notes[0];
+
+    expect(note.folder).toBeDefined();
+    expect(note.folder._id.toString()).toBe(folderId);
+    expect(note.folder.name).toBe("Work");
+});
+
+test("should return populated folder when fetching a single note", async () => {
+    const token = await registerAndLogin(
+        "Prem",
+        "prem-folder-single@example.com"
+    );
+
+    const folderResponse = await request(app)
+        .post("/api/v1/folders")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            name: "Personal",
+        });
+
+    const folderId = folderResponse.body.data._id;
+
+    const noteResponse = await request(app)
+        .post("/api/v1/notes")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            title: "Personal Note",
+            content: "Personal note content",
+            folder: folderId,
+        });
+
+    const noteId = noteResponse.body.data._id;
+
+    const response = await request(app)
+        .get(`/api/v1/notes/${noteId}`)
+        .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+
+    const note = response.body.data;
+
+    expect(note.folder).toBeDefined();
+    expect(note.folder._id.toString()).toBe(folderId);
+    expect(note.folder.name).toBe("Personal");
+});
+
+test("should remove folder from a note", async () => {
+    const token = await registerAndLogin(
+        "Prem",
+        "prem-folder-remove@example.com"
+    );
+
+    const folderResponse = await request(app)
+        .post("/api/v1/folders")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            name: "Work",
+        });
+
+    const folderId = folderResponse.body.data._id;
+
+    const noteResponse = await request(app)
+        .post("/api/v1/notes")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            title: "Folder Note",
+            content: "Note content",
+            folder: folderId,
+        });
+
+    expect(noteResponse.status).toBe(201);
+
+    const noteId = noteResponse.body.data._id;
+
+    const updateResponse = await request(app)
+        .put(`/api/v1/notes/${noteId}`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            title: "Folder Note",
+            content: "Note content",
+            folder: null,
+        });
+
+    expect(updateResponse.status).toBe(200);
+
+    expect(updateResponse.body.data.folder).toBeNull();
 });
 });

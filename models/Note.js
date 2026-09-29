@@ -49,6 +49,10 @@ const noteSchema=new mongoose.Schema({
         ref: "Tag",
     },
 ],
+    folder:{
+        type:mongoose.Schema.Types.ObjectId,
+        ref:"Folder",
+    },
     user:{
         type:mongoose.Schema.Types.ObjectId,
         ref:"User",

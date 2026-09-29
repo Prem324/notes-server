@@ -4,6 +4,7 @@ const auditService = require("./auditService");
 const AppError = require("../utils/AppError");
 const logger=require("../config/logger");
 const tagService = require("./tagService");
+const folderService = require("./folderService");
 
 // ============================================================
 // GET ALL NOTES
@@ -42,6 +43,7 @@ const getAllNotes = async (
             "name email role"
         )
         .populate("tags", "name")
+        .populate("folder", "name")
         .skip(
             (page - 1) * limit
         )
@@ -88,7 +90,8 @@ const getNoteById = async (
 
     const note =
     await Note.findById(noteId)
-        .populate("tags", "name");    
+        .populate("tags", "name")
+        .populate("folder", "name")
 
     if (!note) {
 
@@ -131,6 +134,13 @@ const createNote = async (
             userId,
         });
     }
+
+    if (data.folder !== undefined) {
+    await folderService.validateUserFolder({
+        folderId: data.folder,
+        userId,
+    });
+}
 
     const note =
         await Note.create({
@@ -201,12 +211,25 @@ const updateNote = async (
     }
 
     if (data.tags !== undefined) {
+    const tagOwnerId = note.user.toString();
+
     await tagService.validateUserTags({
         tagIds: data.tags,
-        userId,
+        userId: tagOwnerId,
     });
 
     note.tags = data.tags;
+}
+
+if (data.folder !== undefined) {
+    const folderOwnerId = note.user.toString();
+
+    await folderService.validateUserFolder({
+        folderId: data.folder,
+        userId: folderOwnerId,
+    });
+
+    note.folder = data.folder;
 }
 
     note.title =
@@ -384,6 +407,7 @@ const getNoteWithComments =
                     },
                 })
                 .populate("tags", "name")
+                .populate("folder", "name")
 
         if (!note) {
 

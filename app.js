@@ -28,6 +28,7 @@ const commentRoutes = require("./routes/commentRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
 const configRoutes = require("./routes/configRoutes");
 const tagRoutes = require("./routes/tagRoutes");
+const folderRoutes = require("./routes/folderRoutes");
 //const exportRoutes = require("./routes/exportRoutes");
 
 const errorHandler = require("./middleware/errorHandler");
@@ -73,6 +74,7 @@ app.use(`${API_PREFIX}/users`, userRoutes);
 app.use(`${API_PREFIX}/comments`, commentRoutes);
 app.use(`${API_PREFIX}/analytics`, analyticsRoutes);
 app.use(`${API_PREFIX}/tags`, tagRoutes);
+app.use(`${API_PREFIX}/folders`, folderRoutes);
 //app.use(`${API_PREFIX}/exports`, exportRoutes);
 
 app.use(`${API_PREFIX}/config`, configRoutes);

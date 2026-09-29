@@ -50,5 +50,6 @@ module.exports = {
         noteSharing: process.env.FEATURE_NOTE_SHARING,
         notifications: process.env.FEATURE_NOTIFICATIONS,
         activityTimeline: process.env.FEATURE_ACTIVITY_TIMELINE,
+        folders: process.env.FEATURE_FOLDERS,
     },
 };
