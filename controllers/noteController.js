@@ -33,13 +33,21 @@ const getNotes = async (req, res) => {
     const search =
         req.query.search || "";
 
+    const tag =
+        req.query.tag || "";
+
+    const folder =
+        req.query.folder || "";
+
     const result =
         await noteService.getAllNotes(
             req.user.id,
             req.user.role,
             page,
             limit,
-            search
+            search,
+            tag,
+            folder
         );
 
     return sendSuccess(

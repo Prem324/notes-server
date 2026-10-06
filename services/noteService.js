@@ -10,19 +10,34 @@ const folderService = require("./folderService");
 // GET ALL NOTES
 // ============================================================
 
+// ============================================================
+// GET ALL NOTES
+// ============================================================
+
 const getAllNotes = async (
     userId,
     role,
     page,
     limit,
-    search
+    search,
+    tag,
+    folder
 ) => {
 
     const query = {};
 
+    // --------------------------------------------
+    // User ownership
+    // --------------------------------------------
+
     if (role !== "admin") {
         query.user = userId;
     }
+
+
+    // --------------------------------------------
+    // Text search
+    // --------------------------------------------
 
     if (search) {
         query.$text = {
@@ -30,28 +45,67 @@ const getAllNotes = async (
         };
     }
 
+
+    // --------------------------------------------
+    // Tag filter
+    // --------------------------------------------
+
+    if (tag) {
+        query.tags = tag;
+    }
+
+
+    // --------------------------------------------
+    // Folder filter
+    // --------------------------------------------
+
+    if (folder) {
+        query.folder = folder;
+    }
+
+
+    // --------------------------------------------
+    // Count filtered notes
+    // --------------------------------------------
+
     const totalNotes =
         await Note.countDocuments(query);
+
+
+    // --------------------------------------------
+    // Calculate total pages
+    // --------------------------------------------
 
     const totalPages =
         Math.ceil(totalNotes / limit);
 
+
+    // --------------------------------------------
+    // Fetch notes
+    // --------------------------------------------
+
     const notes =
-    await Note.find(query)
-        .populate(
-            "user",
-            "name email role"
-        )
-        .populate("tags", "name")
-        .populate("folder", "name")
-        .skip(
-            (page - 1) * limit
-        )
-        .limit(limit)
-        .sort({
-            createdAt: -1,
-        })
-        .lean();
+        await Note.find(query)
+            .populate(
+                "user",
+                "name email role"
+            )
+            .populate("tags", "name")
+            .populate("folder", "name")
+            .skip(
+                (page - 1) * limit
+            )
+            .limit(limit)
+            .sort({
+                createdAt: -1,
+            })
+            .lean();
+
+
+    // --------------------------------------------
+    // Response
+    // --------------------------------------------
+
     return {
 
         notes,
@@ -76,6 +130,7 @@ const getAllNotes = async (
 
     };
 };
+
 
 
 // ============================================================
