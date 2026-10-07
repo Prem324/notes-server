@@ -125,6 +125,8 @@ describe("Note Routes", () => {
                 "user",
                 1,
                 10,
+                "",
+                "",
                 ""
             );
         }
@@ -171,6 +173,8 @@ describe("Note Routes", () => {
                 "user",
                 1,
                 10,
+                "",
+                "",
                 ""
             );
         }
@@ -375,7 +379,7 @@ describe("Note Routes", () => {
                 .toEqual({
                     success: true,
                     message:
-                        "Note with comments fetched successfully",
+                        "Note fetched successfully",
                     data: fakeNote,
                 });
 
@@ -383,7 +387,9 @@ describe("Note Routes", () => {
             expect(
                 noteService.getNoteWithComments
             ).toHaveBeenCalledWith(
-                "note123"
+                "note123",
+                "user123",
+                "user"
             );
         }
     );

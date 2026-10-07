@@ -5,6 +5,9 @@ const AppError = require("../utils/AppError");
 const logger=require("../config/logger");
 const tagService = require("./tagService");
 const folderService = require("./folderService");
+const { getNoteAccess } = require("./noteAccessService");
+const NoteShare = require("../models/NoteShare");
+const featureFlags = require("../config/featureFlags");
 
 // ============================================================
 // GET ALL NOTES
@@ -27,13 +30,45 @@ const getAllNotes = async (
     const query = {};
 
     // --------------------------------------------
-    // User ownership
+    // User access
     // --------------------------------------------
 
     if (role !== "admin") {
-        query.user = userId;
-    }
 
+        let accessibleNoteIds = [];
+
+        // Owner's notes
+        const ownedNotes = await Note.find(
+            { user: userId },
+            { _id: 1 }
+        ).lean();
+
+        accessibleNoteIds = ownedNotes.map(
+            note => note._id
+        );
+
+        // Shared notes
+        if (featureFlags.noteSharing) {
+
+            const sharedNotes = await NoteShare.find(
+                { user: userId },
+                { note: 1 }
+            ).lean();
+
+            const sharedNoteIds = sharedNotes.map(
+                share => share.note
+            );
+
+            accessibleNoteIds = [
+                ...accessibleNoteIds,
+                ...sharedNoteIds,
+            ];
+        }
+
+        query._id = {
+            $in: accessibleNoteIds,
+        };
+    }
 
     // --------------------------------------------
     // Text search
@@ -45,7 +80,6 @@ const getAllNotes = async (
         };
     }
 
-
     // --------------------------------------------
     // Tag filter
     // --------------------------------------------
@@ -53,7 +87,6 @@ const getAllNotes = async (
     if (tag) {
         query.tags = tag;
     }
-
 
     // --------------------------------------------
     // Folder filter
@@ -63,7 +96,6 @@ const getAllNotes = async (
         query.folder = folder;
     }
 
-
     // --------------------------------------------
     // Count filtered notes
     // --------------------------------------------
@@ -71,14 +103,12 @@ const getAllNotes = async (
     const totalNotes =
         await Note.countDocuments(query);
 
-
     // --------------------------------------------
     // Calculate total pages
     // --------------------------------------------
 
     const totalPages =
         Math.ceil(totalNotes / limit);
-
 
     // --------------------------------------------
     // Fetch notes
@@ -101,6 +131,65 @@ const getAllNotes = async (
             })
             .lean();
 
+    // --------------------------------------------
+    // Add access role
+    // --------------------------------------------
+
+    if (role !== "admin") {
+
+        const noteIds = notes.map(
+            note => note._id
+        );
+
+        let shares = [];
+
+        if (featureFlags.noteSharing) {
+
+            shares = await NoteShare.find({
+                note: { $in: noteIds },
+                user: userId,
+            })
+                .select("note permission")
+                .lean();
+        }
+
+        const shareMap = new Map(
+            shares.map(share => [
+                share.note.toString(),
+                share.permission,
+            ])
+        );
+
+        notes.forEach(note => {
+
+            if (
+                note.user &&
+                note.user._id.toString() ===
+                userId.toString()
+            ) {
+
+                note.accessRole = "owner";
+
+            } else {
+
+                const permission =
+                    shareMap.get(
+                        note._id.toString()
+                    );
+
+                note.accessRole =
+                    permission === "editor"
+                        ? "editor"
+                        : "viewer";
+            }
+        });
+
+    } else {
+
+        notes.forEach(note => {
+            note.accessRole = "admin";
+        });
+    }
 
     // --------------------------------------------
     // Response
@@ -143,35 +232,21 @@ const getNoteById = async (
     role
 ) => {
 
-    const note =
-    await Note.findById(noteId)
-        .populate("tags", "name")
-        .populate("folder", "name")
-
-    if (!note) {
-
-        throw new AppError(
-            "Note not found",
-            404
+    const { note, accessRole } =
+        await getNoteAccess(
+            noteId,
+            userId,
+            role
         );
 
-    }
+    await note.populate("tags", "name");
+    await note.populate("folder", "name");
 
-    if (
-        role !== "admin" &&
-        note.user.toString() !== userId
-    ) {
-
-        throw new AppError(
-            "Not authorized to access this note",
-            403
-        );
-
-    }
-
-    return note;
+    return {
+        ...note.toObject(),
+        accessRole,
+    };
 };
-
 
 // ============================================================
 // CREATE NOTE
@@ -241,51 +316,64 @@ const updateNote = async (
     auditContext = {}
 ) => {
 
-    const note =
-        await Note.findById(id);
+    const {
+        note,
+        accessRole,
+        canEdit,
+    } = await getNoteAccess(
+        id,
+        userId,
+        role
+    );
 
-    if (!note) {
+    // --------------------------------------------
+    // Permission check
+    // --------------------------------------------
 
-        throw new AppError(
-            "Note not found",
-            404
-        );
-
-    }
-
-    if (
-        role !== "admin" &&
-        note.user.toString() !== userId
-    ) {
-
+    if (!canEdit) {
         throw new AppError(
             "Not authorized to update this note",
             403
         );
-
     }
 
+    // --------------------------------------------
+    // Validate tags against note owner
+    // --------------------------------------------
+
     if (data.tags !== undefined) {
-    const tagOwnerId = note.user.toString();
 
-    await tagService.validateUserTags({
-        tagIds: data.tags,
-        userId: tagOwnerId,
-    });
+        const tagOwnerId =
+            note.user.toString();
 
-    note.tags = data.tags;
-}
+        await tagService.validateUserTags({
+            tagIds: data.tags,
+            userId: tagOwnerId,
+        });
 
-if (data.folder !== undefined) {
-    const folderOwnerId = note.user.toString();
+        note.tags = data.tags;
+    }
 
-    await folderService.validateUserFolder({
-        folderId: data.folder,
-        userId: folderOwnerId,
-    });
+    // --------------------------------------------
+    // Validate folder against note owner
+    // --------------------------------------------
 
-    note.folder = data.folder;
-}
+    if (data.folder !== undefined) {
+
+        const folderOwnerId =
+            note.user.toString();
+
+        await folderService.validateUserFolder({
+            folderId: data.folder,
+            userId: folderOwnerId,
+        });
+
+        note.folder = data.folder;
+    }
+
+    // --------------------------------------------
+    // Update basic fields
+    // --------------------------------------------
 
     note.title =
         data.title ?? note.title;
@@ -297,6 +385,10 @@ if (data.folder !== undefined) {
         data.completed ?? note.completed;
 
     await note.save();
+
+    // --------------------------------------------
+    // Audit log
+    // --------------------------------------------
 
     await auditService.log({
 
@@ -311,6 +403,7 @@ if (data.folder !== undefined) {
         metadata: {
             title: note.title,
             role,
+            accessRole,
         },
 
         ipAddress:
@@ -336,31 +429,31 @@ const deleteNote = async (
     auditContext = {}
 ) => {
 
-    const note =
-        await Note.findById(noteId);
+    const {
+        note,
+        canDelete,
+        accessRole,
+    } = await getNoteAccess(
+        noteId,
+        userId,
+        role
+    );
 
-    if (!note) {
+    // --------------------------------------------
+    // Delete permission
+    // --------------------------------------------
 
+    if (!canDelete) {
         throw new AppError(
-            "Note not found",
-            404
-        );
-
-    }
-
-    if (
-        role !== "admin" &&
-        note.user.toString() !== userId
-    ) {
-
-        throw new AppError(
-            "Not authorized to update this note",
+            "Not authorized to delete this note",
             403
         );
-
     }
 
+    // --------------------------------------------
     // Delete Cloudinary attachments
+    // --------------------------------------------
+
     if (
         note.attachments &&
         note.attachments.length > 0
@@ -387,14 +480,16 @@ const deleteNote = async (
 
                         logger.error(
                             {
-                                service:"Cloudinary",
-                                publicId:attachment.publicId,
-                                error:{
-                                    message:error.message,
+                                service: "Cloudinary",
+                                publicId:
+                                    attachment.publicId,
+                                error: {
+                                    message:
+                                        error.message,
                                 },
                             },
                             "Cloudinary file deletion failed"
-                        )
+                        );
 
                     }
 
@@ -405,9 +500,17 @@ const deleteNote = async (
 
     }
 
+    // --------------------------------------------
+    // Delete note
+    // --------------------------------------------
+
     await Note.findByIdAndDelete(
         noteId
     );
+
+    // --------------------------------------------
+    // Audit log
+    // --------------------------------------------
 
     await auditService.log({
 
@@ -422,6 +525,7 @@ const deleteNote = async (
         metadata: {
             title: note.title,
             role,
+            accessRole,
         },
 
         ipAddress:
@@ -443,38 +547,61 @@ const deleteNote = async (
 // GET NOTE WITH COMMENTS
 // ============================================================
 
-const getNoteWithComments =
-    async (noteId) => {
+const getNoteWithComments = async (
+    noteId,
+    userId,
+    role
+) => {
 
-        const note =
-            await Note.findById(
-                noteId
-            )
-                .populate(
-                    "user",
-                    "name email"
-                )
-                .populate({
-                    path: "comments",
-                    populate: {
-                        path: "user",
-                        select: "name email",
-                    },
-                })
-                .populate("tags", "name")
-                .populate("folder", "name")
+    // --------------------------------------------
+    // Check note access
+    // --------------------------------------------
 
-        if (!note) {
+    const {
+        note,
+        accessRole,
+    } = await getNoteAccess(
+        noteId,
+        userId,
+        role
+    );
 
-            throw new AppError(
-                "Note not found",
-                404
-            );
+    // --------------------------------------------
+    // Populate note data
+    // --------------------------------------------
 
-        }
+    await note.populate(
+        "user",
+        "name email"
+    );
 
-        return note;
+    await note.populate({
+        path: "comments",
+        populate: {
+            path: "user",
+            select: "name email",
+        },
+    });
+
+    await note.populate(
+        "tags",
+        "name"
+    );
+
+    await note.populate(
+        "folder",
+        "name"
+    );
+
+    // --------------------------------------------
+    // Return note + access role
+    // --------------------------------------------
+
+    return {
+        ...note.toObject(),
+        accessRole,
     };
+};
 
 
 // ============================================================
@@ -489,44 +616,39 @@ const uploadAttachment = async (
     auditContext = {}
 ) => {
 
-    const note =
-        await Note.findById(noteId);
+    const {
+        note,
+        canEdit,
+    } = await getNoteAccess(
+        noteId,
+        userId,
+        role
+    );
 
-    if (!note) {
+    // --------------------------------------------
+    // Editor or higher can upload
+    // --------------------------------------------
 
+    if (!canEdit) {
         throw new AppError(
-            "Note not found",
-            404
-        );
-
-    }
-
-    if (
-        role !== "admin" &&
-        note.user.toString() !== userId
-    ) {
-
-        throw new AppError(
-            "Not authorized to update this note",
+            "Not authorized to upload attachment",
             403
         );
-
     }
 
-    const updatedNote =
-        await Note.findByIdAndUpdate(
-            noteId,
-            {
-                $push: {
-                    attachments: {
-                        $each: attachments,
-                    },
-                },
-            },
-            {
-                new: true,
-            }
-        );
+    // --------------------------------------------
+    // Add attachments
+    // --------------------------------------------
+
+    note.attachments.push(
+        ...attachments
+    );
+
+    await note.save();
+
+    // --------------------------------------------
+    // Audit log
+    // --------------------------------------------
 
     await auditService.log({
 
@@ -539,9 +661,112 @@ const uploadAttachment = async (
         resourceId: noteId,
 
         metadata: {
-
             attachmentCount:
                 attachments.length,
+
+            role,
+        },
+
+        ipAddress:
+            auditContext.ipAddress || null,
+
+        userAgent:
+            auditContext.userAgent || null,
+
+    });
+
+    return note;
+};
+
+
+// ============================================================
+// DELETE ATTACHMENT
+// ============================================================
+
+const deleteAttachment = async (
+    noteId,
+    attachmentId,
+    userId,
+    role,
+    auditContext = {}
+) => {
+
+    const {
+        note,
+        canDelete,
+    } = await getNoteAccess(
+        noteId,
+        userId,
+        role
+    );
+
+    // --------------------------------------------
+    // Only owner/admin can delete attachments
+    // --------------------------------------------
+
+    if (!canDelete) {
+        throw new AppError(
+            "Not authorized to delete attachment",
+            403
+        );
+    }
+
+    // --------------------------------------------
+    // Find attachment
+    // --------------------------------------------
+
+    const attachment =
+        note.attachments.find(
+            item =>
+                item._id.toString() ===
+                attachmentId
+        );
+
+    if (!attachment) {
+        throw new AppError(
+            "Attachment not found",
+            404
+        );
+    }
+
+    // --------------------------------------------
+    // Delete from Cloudinary
+    // --------------------------------------------
+
+    await mediaService.deleteFile(
+        attachment.publicId
+    );
+
+    // --------------------------------------------
+    // Remove from note
+    // --------------------------------------------
+
+    note.attachments.pull(
+        attachmentId
+    );
+
+    await note.save();
+
+    // --------------------------------------------
+    // Audit log
+    // --------------------------------------------
+
+    await auditService.log({
+
+        userId,
+
+        action: "ATTACHMENT_DELETED",
+
+        resource: "Note",
+
+        resourceId: noteId,
+
+        metadata: {
+
+            attachmentId,
+
+            fileName:
+                attachment.fileName,
 
             role,
 
@@ -555,104 +780,8 @@ const uploadAttachment = async (
 
     });
 
-    return updatedNote;
+    return note;
 };
-
-
-// ============================================================
-// DELETE ATTACHMENT
-// ============================================================
-
-const deleteAttachment =
-    async (
-        noteId,
-        attachmentId,
-        userId,
-        role,
-        auditContext = {}
-    ) => {
-
-        const note =
-            await Note.findById(noteId);
-
-        if (!note) {
-
-            throw new AppError(
-                "Note not found",
-                404
-            );
-
-        }
-
-        if (
-            role !== "admin" &&
-            note.user.toString() !== userId
-        ) {
-
-            throw new AppError(
-                "Not authorized to update this note",
-                403
-            );
-
-        }
-
-        const attachment =
-            note.attachments.find(
-                item =>
-                    item._id.toString() ===
-                    attachmentId
-            );
-
-        if (!attachment) {
-
-            throw new AppError(
-                "Attachment not found",
-                404
-            );
-
-        }
-
-        await mediaService.deleteFile(
-            attachment.publicId
-        );
-
-        note.attachments.pull(
-            attachmentId
-        );
-
-        await note.save();
-
-        await auditService.log({
-
-            userId,
-
-            action: "ATTACHMENT_DELETED",
-
-            resource: "Note",
-
-            resourceId: noteId,
-
-            metadata: {
-
-                attachmentId,
-
-                fileName:
-                    attachment.fileName,
-
-                role,
-
-            },
-
-            ipAddress:
-                auditContext.ipAddress || null,
-
-            userAgent:
-                auditContext.userAgent || null,
-
-        });
-
-        return note;
-    };
 
 
 module.exports = {

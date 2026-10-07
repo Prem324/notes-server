@@ -156,17 +156,18 @@ const getNoteWithComments = async (req, res) => {
 
     const note =
         await noteService.getNoteWithComments(
-            req.params.id
+            req.params.id,
+            req.user.id,
+            req.user.role
         );
 
     return sendSuccess(
         res,
         200,
-        "Note with comments fetched successfully",
+        "Note fetched successfully",
         note
     );
 };
-
 
 // ============================================================
 // UPLOAD NOTE ATTACHMENTS
