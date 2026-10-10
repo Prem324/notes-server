@@ -18,6 +18,10 @@ const{
     
 }=require("../controllers/noteController");
 
+const {
+    getNoteActivity,
+} = require("../controllers/noteActivityController");
+
 const validateFileContent = require("../middleware/validateFileContent");
 const validateImageMiddleware = require("../middleware/validateImage");
 
@@ -59,8 +63,83 @@ const validateImageMiddleware = require("../middleware/validateImage");
  */
 router.get("/",auth,asyncHandler(getNotes));
 
-
+/**
+ * @swagger
+ * /api/v1/notes/{id}:
+ *   get:
+ *     summary: Get note by ID
+ *     description: Returns a single note by its ID.
+ *     tags:
+ *       - Notes
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Note ID
+ *     responses:
+ *       200:
+ *         description: Note fetched successfully
+ *       400:
+ *         description: Invalid resource ID
+ *       401:
+ *         description: No token provided or invalid token
+ *       403:
+ *         description: Not authorized
+ *       404:
+ *         description: Note not found
+ */
 router.get("/:id", auth, asyncHandler(getNoteById));
+
+/**
+ * @swagger
+ * /api/v1/notes/{id}/activity:
+ *   get:
+ *     summary: Get note activity
+ *     description: Returns paginated activity logs for a specific note.
+ *     tags:
+ *       - Notes
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Note ID
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           example: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           example: 20
+ *         description: Number of activities per page
+ *     responses:
+ *       200:
+ *         description: Note activity fetched successfully
+ *       400:
+ *         description: Invalid note ID
+ *       401:
+ *         description: No token provided or invalid token
+ *       403:
+ *         description: Not authorized
+ *       404:
+ *         description: Note not found
+ */
+router.get(
+    "/:id/activity",
+    auth,
+    asyncHandler(getNoteActivity)
+);
 
 /**
  * @swagger

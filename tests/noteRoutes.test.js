@@ -5,6 +5,7 @@ const app = require("../app");
 const noteService = require("../services/noteService");
 const uploadService = require("../services/uploadService");
 const mediaService = require("../services/mediaService");
+const noteActivityService = require("../services/noteActivityService");
 
 
 // ======================================================
@@ -14,6 +15,7 @@ const mediaService = require("../services/mediaService");
 jest.mock("../services/noteService");
 jest.mock("../services/uploadService");
 jest.mock("../services/mediaService");
+jest.mock("../services/noteActivityService");
 
 
 // ======================================================
@@ -860,6 +862,125 @@ describe("Note Routes", () => {
             expect(
                 noteService.uploadAttachment
             ).not.toHaveBeenCalled();
+        }
+    );
+
+    
+    // ==================================================
+    // GET NOTE ACTIVITY
+    // ==================================================
+
+    test(
+        "GET /api/v1/notes/:id/activity returns paginated activity",
+        async () => {
+            const fakeResult = {
+                activities: [
+                    {
+                        id: "activity123",
+                        action: "NOTE_CREATED",
+                        description: "Note created",
+                        createdAt: "2026-10-10T10:00:00.000Z",
+                    },
+                ],
+                pagination: {
+                    totalLogs: 1,
+                    currentPage: 1,
+                    totalPages: 1,
+                    limit: 20,
+                    hasNextPage: false,
+                    hasPrevPage: false,
+                },
+            };
+
+            noteActivityService.getActivityForNote
+                .mockResolvedValue(fakeResult);
+
+            const response = await request(app)
+                .get("/api/v1/notes/note123/activity");
+
+            expect(response.statusCode).toBe(200);
+
+            expect(response.body).toEqual({
+                success: true,
+                message: "Note activity fetched successfully",
+                data: fakeResult,
+            });
+
+            expect(
+                noteActivityService.getActivityForNote
+            ).toHaveBeenCalledWith({
+                noteId: "note123",
+                userId: "user123",
+                role: "user",
+                page: 1,
+                limit: 20,
+            });
+        }
+    );
+
+    test(
+        "GET /api/v1/notes/:id/activity accepts pagination query parameters",
+        async () => {
+            noteActivityService.getActivityForNote
+                .mockResolvedValue({
+                    activities: [],
+                    pagination: {
+                        totalLogs: 0,
+                        currentPage: 2,
+                        totalPages: 0,
+                        limit: 5,
+                        hasNextPage: false,
+                        hasPrevPage: true,
+                    },
+                });
+
+            const response = await request(app)
+                .get("/api/v1/notes/note123/activity?page=2&limit=5");
+
+            expect(response.statusCode).toBe(200);
+
+            expect(
+                noteActivityService.getActivityForNote
+            ).toHaveBeenCalledWith({
+                noteId: "note123",
+                userId: "user123",
+                role: "user",
+                page: 2,
+                limit: 5,
+            });
+        }
+    );
+
+    test(
+        "GET /api/v1/notes/:id/activity caps the requested limit at 50",
+        async () => {
+            noteActivityService.getActivityForNote
+                .mockResolvedValue({
+                    activities: [],
+                    pagination: {
+                        totalLogs: 0,
+                        currentPage: 1,
+                        totalPages: 0,
+                        limit: 50,
+                        hasNextPage: false,
+                        hasPrevPage: false,
+                    },
+                });
+
+            const response = await request(app)
+                .get("/api/v1/notes/note123/activity?limit=500");
+
+            expect(response.statusCode).toBe(200);
+
+            expect(
+                noteActivityService.getActivityForNote
+            ).toHaveBeenCalledWith({
+                noteId: "note123",
+                userId: "user123",
+                role: "user",
+                page: 1,
+                limit: 50,
+            });
         }
     );
 

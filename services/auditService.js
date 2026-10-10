@@ -127,9 +127,84 @@ const getAdminAuditLogs = async ({
     };
 };
 
+// ============================================================
+// GET ACTIVITY FOR A SPECIFIC NOTE
+// ============================================================
+
+const getNoteActivity = async ({
+    noteId,
+    page = 1,
+    limit = 20,
+}) => {
+    const currentPage = Math.max(
+        Number(page) || 1,
+        1
+    );
+
+    const currentLimit = Math.min(
+        Math.max(Number(limit) || 20, 1),
+        50
+    );
+
+    const skip = (currentPage - 1) * currentLimit;
+
+    // Always restrict the query to the requested note.
+    const filter = {
+        resource: "Note",
+        resourceId: noteId,
+    };
+
+    const [logs, totalLogs] = await Promise.all([
+        AuditLog.find(filter)
+            .select("action createdAt")
+            .sort({ createdAt: -1, _id: -1 })
+            .skip(skip)
+            .limit(currentLimit)
+            .lean(),
+
+        AuditLog.countDocuments(filter),
+    ]);
+
+    // Return only explicitly approved fields.
+    const activities = logs.map((entry) => {
+        const descriptions = {
+            NOTE_CREATED: "Note created",
+            NOTE_UPDATED: "Note updated",
+            NOTE_DELETED: "Note deleted",
+            ATTACHMENT_UPLOADED: "Attachment uploaded",
+            ATTACHMENT_DELETED: "Attachment deleted",
+        };
+
+        return {
+            id: entry._id,
+            action: entry.action,
+            description:
+                descriptions[entry.action] || "Note activity",
+            createdAt: entry.createdAt,
+        };
+    });
+
+    const totalPages = Math.ceil(
+        totalLogs / currentLimit
+    );
+
+    return {
+        activities,
+        pagination: {
+            totalLogs,
+            currentPage,
+            totalPages,
+            limit: currentLimit,
+            hasNextPage: currentPage < totalPages,
+            hasPrevPage: currentPage > 1,
+        },
+    };
+};
+
 
 module.exports = {
     log,
     getAuditLogs: getAdminAuditLogs,
     getAdminAuditLogs,
+    getNoteActivity,
 };
