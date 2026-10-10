@@ -1,6 +1,18 @@
+
 const NoteShare = require("../models/NoteShare");
 const Note = require("../models/Note");
 const User = require("../models/User");
+const notificationService = require("./notificationService");
+
+// Notifications must never interrupt a successful collaboration operation.
+const createNotificationSafely = async (notification) => {
+    try {
+        await notificationService.createNotification(notification);
+    } catch (error) {
+        // Notification delivery is non-critical to note sharing.
+        // Keep the core collaboration operation successful if this fails.
+    }
+};
 
 const findManageableNote = async ({
     noteId,
@@ -75,11 +87,25 @@ const shareNote = async ({
         throw error;
     }
 
-    return NoteShare.create({
+    const share = await NoteShare.create({
         note: noteId,
         user: userId,
         permission,
     });
+
+    await createNotificationSafely({
+        recipient: userId,
+        type: "NOTE_SHARED",
+        title: "A note was shared with you",
+        message: `You have been given ${permission} access to "${note.title || "a note"}".`,
+        actor: ownerId,
+        note: note._id,
+        metadata: {
+            permission,
+        },
+    });
+
+    return share;
 };
 
 const getNoteCollaborators = async ({
@@ -107,7 +133,7 @@ const updateCollaboratorPermission = async ({
     permission,
     role,
 }) => {
-    await findManageableNote({
+    const note = await findManageableNote({
         noteId,
         userId: ownerId,
         role,
@@ -119,16 +145,31 @@ const updateCollaboratorPermission = async ({
     });
 
     if (!share) {
-        const error = new Error(
-            "Collaborator not found"
-        );
+        const error = new Error("Collaborator not found");
         error.statusCode = 404;
         throw error;
     }
 
+    const previousPermission = share.permission;
+
     share.permission = permission;
 
     await share.save();
+
+    if (previousPermission !== permission) {
+        await createNotificationSafely({
+            recipient: userId,
+            type: "COLLABORATOR_PERMISSION_UPDATED",
+            title: "Your note permissions changed",
+            message: `Your access to "${note.title || "a note"}" has been changed to ${permission}.`,
+            actor: ownerId,
+            note: note._id,
+            metadata: {
+                previousPermission,
+                permission,
+            },
+        });
+    }
 
     return share;
 };
@@ -139,25 +180,34 @@ const removeCollaborator = async ({
     userId,
     role,
 }) => {
-    await findManageableNote({
+    const note = await findManageableNote({
         noteId,
         userId: ownerId,
         role,
     });
 
-    const share =
-        await NoteShare.findOneAndDelete({
-            note: noteId,
-            user: userId,
-        });
+    const share = await NoteShare.findOneAndDelete({
+        note: noteId,
+        user: userId,
+    });
 
     if (!share) {
-        const error = new Error(
-            "Collaborator not found"
-        );
+        const error = new Error("Collaborator not found");
         error.statusCode = 404;
         throw error;
     }
+
+    await createNotificationSafely({
+        recipient: userId,
+        type: "COLLABORATOR_REMOVED",
+        title: "Note access removed",
+        message: `Your access to "${note.title || "a note"}" has been removed.`,
+        actor: ownerId,
+        note: note._id,
+        metadata: {
+            previousPermission: share.permission,
+        },
+    });
 
     return share;
 };

@@ -30,6 +30,7 @@ const configRoutes = require("./routes/configRoutes");
 const tagRoutes = require("./routes/tagRoutes");
 const folderRoutes = require("./routes/folderRoutes");
 const noteShareRoutes = require("./routes/noteShareRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 //const exportRoutes = require("./routes/exportRoutes");
 
 const errorHandler = require("./middleware/errorHandler");
@@ -77,6 +78,7 @@ app.use(`${API_PREFIX}/analytics`, analyticsRoutes);
 app.use(`${API_PREFIX}/tags`, tagRoutes);
 app.use(`${API_PREFIX}/folders`, folderRoutes);
 app.use(`${API_PREFIX}/notes`, noteShareRoutes);
+app.use(`${API_PREFIX}/notifications`, notificationRoutes);
 //app.use(`${API_PREFIX}/exports`, exportRoutes);
 
 app.use(`${API_PREFIX}/config`, configRoutes);
