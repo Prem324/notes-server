@@ -67,7 +67,7 @@ app.use(
     swaggerUi.setup(swaggerSpec)
 );
 
-const API_PREFIX = "/api/v1";
+const PI_PREFIX = "/api/v1";
 
 app.use(`${API_PREFIX}/auth`, authRoutes);
 app.use(`${API_PREFIX}/notes`, noteRoutes);
